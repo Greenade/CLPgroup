@@ -12,6 +12,14 @@ import java.nio.charset.StandardCharsets.UTF_8
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.control.NoStackTrace
+import alpine.evaluation.Value.BuiltinFunction
+import alpine.evaluation.Value.Builtin
+import alpine.evaluation.Value.Record
+import alpine.evaluation.Value.Lambda
+import alpine.evaluation.Value.Unevaluated
+import alpine.evaluation.Value.Poison
+import alpine.symbols.Type.BuiltinModule
+import alpine.symbols.Type.Bool
 
 /** The evaluation of an Alpine program.
  *
@@ -104,7 +112,16 @@ final class Interpreter(
     ???
 
   def visitConditional(n: ast.Conditional)(using context: Context): Value =
-    ???
+    val value = n.condition.visit(this)(using context)
+    value match
+      case Builtin(value2, dynamicType) => value2 match
+        case x: Boolean =>
+          if x then
+            n.successCase.visit(this)(using context)
+          else 
+            n.failureCase.visit(this)(using context)
+        case _ => throw Panic(s"unexpected qualification of type '${value.dynamicType}'")
+      case _ => throw Panic(s"unexpected qualification of type '${value.dynamicType}'")
 
   def visitMatch(n: ast.Match)(using context: Context): Value =
     ???
@@ -120,7 +137,7 @@ final class Interpreter(
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
     // TODO
-    ???
+    n.inner.visit(this)(using context)
 
   def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
     ???
@@ -186,10 +203,17 @@ final class Interpreter(
   private def call(f: Value, a: Seq[Value])(using context: Context): Value =
     f match
       case Value.Function(d, _) =>
-        ???
+        assert(a.length == d.inputs.length)
+        val frame = d.inputs.map((p) => p.nameDeclared).zip(a).toMap[symbols.Name, Value]
+        val newContext = context.pushing(frame)
+        d.body.visit(this)(using newContext)
 
       case l: Value.Lambda =>
-        ???
+        assert(a.length == l.inputs.length)
+        val frame = l.inputs.map((p) => p.nameDeclared).zip(a).toMap[symbols.Name, Value] ++ l.captures
+        val newContext = context.pushing(frame)
+        l.body.visit(this)(using newContext)
+
 
       case Value.BuiltinFunction("exit", _) =>
         val Value.Builtin(status, _) = a.head : @unchecked
