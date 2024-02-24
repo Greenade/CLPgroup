@@ -20,6 +20,7 @@ import alpine.evaluation.Value.Unevaluated
 import alpine.evaluation.Value.Poison
 import alpine.symbols.Type.BuiltinModule
 import alpine.symbols.Type.Bool
+import alpine.ast.Typecast
 
 /** The evaluation of an Alpine program.
  *
@@ -90,7 +91,10 @@ final class Interpreter(
     Value.Builtin(n.value, Type.String)
 
   def visitRecord(n: ast.Record)(using context: Context): Value =
-    ???
+    val labels = n.fields.map(e => Type.Labeled(e.label,e.value.visit(this)(using context).dynamicType))
+    val exp = n.fields.map(e => e.value.visit(this)(using context))
+
+    Value.Record(n.identifier, exp,Type.Record(n.identifier,labels))
 
   def visitSelection(n: ast.Selection)(using context: Context): Value =
     n.qualification.visit(this) match
@@ -136,12 +140,23 @@ final class Interpreter(
     ???
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
-    // TODO
     n.inner.visit(this)(using context)
 
   def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
-    ???
-
+    val op = n.operation
+    val asc = n.ascription.visit(this)(using context).dynamicType
+    val exp = n.inner.visit(this)(using context)
+    op match
+      case Typecast.Narrow => 
+        if asc.isSubtypeOf(exp.dynamicType) then 
+          Value.some(exp)
+        else Value.none
+      case Typecast.NarrowUnconditionally => 
+        if asc.isSubtypeOf(exp.dynamicType) then
+          exp
+        else throw Panic("not a subtype")
+      case Typecast.Widen => exp
+      
   def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Value =
     unexpectedVisit(n)
 
