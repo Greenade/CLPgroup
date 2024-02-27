@@ -368,13 +368,13 @@ final class Interpreter(
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesValue(
       scrutinee: Value, pattern: ast.ValuePattern
-  )(using context: Context): Option[Interpreter.Frame] =
-    val scrutinee = scrutinee.visit(this)(using context)
+  )(using context: Context): Option[Interpreter.Frame] = ???
+    /*val scrutinee = scrutinee.visit(this)(using context)
     val pattern = pattern.visit(this)(using context)
     
     
 
-    None
+    None*/
     
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
