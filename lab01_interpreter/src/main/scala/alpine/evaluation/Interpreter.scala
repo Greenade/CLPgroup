@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets.UTF_8
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.control.NoStackTrace
+import alpine.ast.Tree
 import alpine.evaluation.Value.BuiltinFunction
 import alpine.evaluation.Value.Builtin
 import alpine.evaluation.Value.Record
@@ -110,7 +111,9 @@ final class Interpreter(
         throw Panic(s"unexpected qualification of type '${q.dynamicType}'")
 
   def visitApplication(n: ast.Application)(using context: Context): Value =
-    ???
+    val f = n.function.visit(this)(using context)
+    val a = n.arguments.map(Value.Builtin(_, Type.String))
+    call(f,a)(using context) 
 
   def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Value =
     ???
@@ -159,7 +162,7 @@ final class Interpreter(
     ???
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
-    n.inner.visit(this)(using context)
+    n.inner.visit(this)(using context: Context)
 
   def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
     val op = n.operation
