@@ -6,6 +6,9 @@ import alpine.symbols
 import alpine.symbols.{Entity, EntityReference, Type}
 import alpine.util.FatalError
 
+// import boundaries
+import scala.util.boundary, boundary.break
+
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets.UTF_8
 
@@ -128,7 +131,17 @@ final class Interpreter(
       case _ => throw Panic(s"unexpected qualification of type '${value.dynamicType}'")
 
   def visitMatch(n: ast.Match)(using context: Context): Value =
-    ???
+    val scrutinee = n.scrutinee.visit(this)(using context)
+    boundary:
+      for(c <- n.cases){ 
+        matches(scrutinee,c.pattern)(using context) match
+          case Some(bindings) => 
+            // add the bindings to the context
+            val updatedContext = context.pushing(bindings)
+            break(c.body.visit(this)(using updatedContext))
+          case _ => // do nothing
+      }
+    throw Panic("case not found")
 
   def visitMatchCase(n: ast.Match.Case)(using context: Context): Value =
     unexpectedVisit(n)
@@ -344,7 +357,7 @@ final class Interpreter(
   private def matchesWildcard(
       scrutinee: Value, pattern: ast.Wildcard
   )(using context: Context): Option[Interpreter.Frame] =
-    ???
+    Some(Map.empty)
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesValue(
