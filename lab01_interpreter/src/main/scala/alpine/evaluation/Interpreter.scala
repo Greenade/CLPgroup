@@ -134,9 +134,14 @@ final class Interpreter(
     unexpectedVisit(n)
 
   def visitLet(n: ast.Let)(using context: Context): Value =
-    ???
+    if n.binding.initializer.isDefined then
+      n.binding.initializer.get.visit(this)(using context)
+      n.body.visit(this)(using context);
+    else n.body.visit(this)(using context)
 
-  def visitLambda(n: ast.Lambda)(using context: Context): Value =
+  def visitLambda(n: ast.Lambda)(using context: Context): Value =  
+    // Value.Lambda(n.body, n.inputs, context.flattened,) 
+    // incomplete, need to also update context and transfom output in the correct type
     ???
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
