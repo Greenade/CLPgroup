@@ -132,16 +132,22 @@ final class Interpreter(
 
   def visitMatch(n: ast.Match)(using context: Context): Value =
     val scrutinee = n.scrutinee.visit(this)(using context)
-    boundary:
-      for(c <- n.cases){ 
-        matches(scrutinee,c.pattern)(using context) match
+    val ret = visitMatchHelper(scrutinee,n.cases)
+    ret match
+      case None => throw Panic("case not found")
+      case Some(r) => r
+
+
+  def visitMatchHelper(scrutinee: Value,l: List[ast.Match.Case])(using context: Context): Option[Value] = l match
+    case head :: next => 
+      matches(scrutinee,head.pattern)(using context) match
           case Some(bindings) => 
             // add the bindings to the context
             val updatedContext = context.pushing(bindings)
-            break(c.body.visit(this)(using updatedContext))
-          case _ => // do nothing
-      }
-    throw Panic("case not found")
+            Some(head.body.visit(this)(using updatedContext))
+          case _ => visitMatchHelper(scrutinee,next)
+    case Nil => None
+      
 
   def visitMatchCase(n: ast.Match.Case)(using context: Context): Value =
     unexpectedVisit(n)
@@ -363,7 +369,13 @@ final class Interpreter(
   private def matchesValue(
       scrutinee: Value, pattern: ast.ValuePattern
   )(using context: Context): Option[Interpreter.Frame] =
-    ???
+    val scrutinee = scrutinee.visit(this)(using context)
+    val pattern = pattern.visit(this)(using context)
+    
+    
+
+    None
+    
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesRecord(
