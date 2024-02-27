@@ -6,6 +6,9 @@ import alpine.symbols
 import alpine.symbols.{Entity, EntityReference, Type}
 import alpine.util.FatalError
 
+// import boundaries
+import scala.util.boundary, boundary.break
+
 import java.io.OutputStream
 import java.nio.charset.StandardCharsets.UTF_8
 
@@ -13,6 +16,15 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.util.control.NoStackTrace
 import alpine.ast.Tree
+import alpine.evaluation.Value.BuiltinFunction
+import alpine.evaluation.Value.Builtin
+import alpine.evaluation.Value.Record
+import alpine.evaluation.Value.Lambda
+import alpine.evaluation.Value.Unevaluated
+import alpine.evaluation.Value.Poison
+import alpine.symbols.Type.BuiltinModule
+import alpine.symbols.Type.Bool
+import alpine.ast.Typecast
 
 /** The evaluation of an Alpine program.
  *
@@ -83,7 +95,10 @@ final class Interpreter(
     Value.Builtin(n.value, Type.String)
 
   def visitRecord(n: ast.Record)(using context: Context): Value =
-    n.visit(this)(using context: Context) // might not work
+    val labels = n.fields.map(e => Type.Labeled(e.label,e.value.visit(this)(using context).dynamicType))
+    val exp = n.fields.map(e => e.value.visit(this)(using context))
+
+    Value.Record(n.identifier, exp,Type.Record(n.identifier,labels))
 
   def visitSelection(n: ast.Selection)(using context: Context): Value =
     n.qualification.visit(this) match
@@ -107,10 +122,35 @@ final class Interpreter(
     ???
 
   def visitConditional(n: ast.Conditional)(using context: Context): Value =
-    ???
+    val value = n.condition.visit(this)(using context)
+    value match
+      case Builtin(value2, dynamicType) => value2 match
+        case x: Boolean =>
+          if x then
+            n.successCase.visit(this)(using context)
+          else 
+            n.failureCase.visit(this)(using context)
+        case _ => throw Panic(s"unexpected qualification of type '${value.dynamicType}'")
+      case _ => throw Panic(s"unexpected qualification of type '${value.dynamicType}'")
 
   def visitMatch(n: ast.Match)(using context: Context): Value =
-    ???
+    val scrutinee = n.scrutinee.visit(this)(using context)
+    val ret = visitMatchHelper(scrutinee,n.cases)
+    ret match
+      case None => throw Panic("case not found")
+      case Some(r) => r
+
+
+  def visitMatchHelper(scrutinee: Value,l: List[ast.Match.Case])(using context: Context): Option[Value] = l match
+    case head :: next => 
+      matches(scrutinee,head.pattern)(using context) match
+          case Some(bindings) => 
+            // add the bindings to the context
+            val updatedContext = context.pushing(bindings)
+            Some(head.body.visit(this)(using updatedContext))
+          case _ => visitMatchHelper(scrutinee,next)
+    case Nil => None
+      
 
   def visitMatchCase(n: ast.Match.Case)(using context: Context): Value =
     unexpectedVisit(n)
@@ -122,11 +162,23 @@ final class Interpreter(
     ???
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
-    // TODO
     n.inner.visit(this)(using context: Context)
-  def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
-    ???
 
+  def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
+    val op = n.operation
+    val asc = n.ascription.visit(this)(using context).dynamicType
+    val exp = n.inner.visit(this)(using context)
+    op match
+      case Typecast.Narrow => 
+        if asc.isSubtypeOf(exp.dynamicType) then 
+          Value.some(exp)
+        else Value.none
+      case Typecast.NarrowUnconditionally => 
+        if asc.isSubtypeOf(exp.dynamicType) then
+          exp
+        else throw Panic("not a subtype")
+      case Typecast.Widen => exp
+      
   def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Value =
     unexpectedVisit(n)
 
@@ -188,10 +240,17 @@ final class Interpreter(
   private def call(f: Value, a: Seq[Value])(using context: Context): Value =
     f match
       case Value.Function(d, _) =>
-        ???
+        assert(a.length == d.inputs.length)
+        val frame = d.inputs.map((p) => p.nameDeclared).zip(a).toMap[symbols.Name, Value]
+        val newContext = context.pushing(frame)
+        d.body.visit(this)(using newContext)
 
       case l: Value.Lambda =>
-        ???
+        assert(a.length == l.inputs.length)
+        val frame = l.inputs.map((p) => p.nameDeclared).zip(a).toMap[symbols.Name, Value] ++ l.captures
+        val newContext = context.pushing(frame)
+        l.body.visit(this)(using newContext)
+
 
       case Value.BuiltinFunction("exit", _) =>
         val Value.Builtin(status, _) = a.head : @unchecked
@@ -307,13 +366,19 @@ final class Interpreter(
   private def matchesWildcard(
       scrutinee: Value, pattern: ast.Wildcard
   )(using context: Context): Option[Interpreter.Frame] =
-    ???
+    Some(Map.empty)
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesValue(
       scrutinee: Value, pattern: ast.ValuePattern
-  )(using context: Context): Option[Interpreter.Frame] =
-    ???
+  )(using context: Context): Option[Interpreter.Frame] = ???
+    /*val scrutinee = scrutinee.visit(this)(using context)
+    val pattern = pattern.visit(this)(using context)
+    
+    
+
+    None*/
+    
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesRecord(
