@@ -450,7 +450,7 @@ final class Interpreter(
             else 
               if scrutinee.equals(initVal.visit(this)(using context)) then
                 //get the name of the binding
-                val name = scrutinee.nameDeclared
+                val name = pattern.nameDeclared
                 Some(Map(name -> scrutinee))
               else 
                 None
