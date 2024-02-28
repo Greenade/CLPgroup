@@ -376,13 +376,12 @@ final class Interpreter(
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
   private def matchesValue(
       scrutinee: Value, pattern: ast.ValuePattern
-  )(using context: Context): Option[Interpreter.Frame] = ???
-    /*val scrutinee = scrutinee.visit(this)(using context)
-    val pattern = pattern.visit(this)(using context)
-    
-    
-
-    None*/
+  )(using context: Context): Option[Interpreter.Frame] =
+    val pat = pattern.value.visit(this)(using context)
+    if(scrutinee.equals(pat)) then
+      Some(Map.empty)
+    else
+      None
     
 
   /** Returns a map from binding in `pattern` to its value iff `scrutinee` matches `pattern`.  */
@@ -400,7 +399,22 @@ final class Interpreter(
   private def matchesBinding(
       scrutinee: Value, pattern: ast.Binding
   )(using context: Context): Option[Interpreter.Frame] =
-    ???
+    val asc = pattern.ascription
+    val init = pattern.initializer
+    asc match
+      case None => None
+      case Some(ascVal) =>
+        init match
+          case None => None
+          case Some(initVal) => 
+            if scrutinee.dynamicType != ascVal.visit(this)(using context).dynamicType then
+              None
+            else 
+              if scrutinee.equals(initVal.visit(this)(using context)) then
+                val name = symbols.Name(None,pattern.identifier)
+                Some(Map(name -> scrutinee))
+              else 
+                None
 
 end Interpreter
 
