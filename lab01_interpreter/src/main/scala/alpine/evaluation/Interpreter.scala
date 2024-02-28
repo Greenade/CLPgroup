@@ -118,10 +118,15 @@ final class Interpreter(
     call(f,a)(using context) 
 
   def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Value =
-    ???
+    val op = n.function.visit(this)(using context)
+    val exp = n.argument.visit(this)(using context)
+    call(op,Seq(exp))(using context)
 
   def visitInfixApplication(n: ast.InfixApplication)(using context: Context): Value =
-    ???
+    val op = n.function.visit(this)(using context)
+    val l = n.lhs.visit(this)(using context)
+    val r = n.rhs.visit(this)(using context)
+    call(op,Seq(l,r))(using context)
 
   def visitConditional(n: ast.Conditional)(using context: Context): Value =
     val value = n.condition.visit(this)(using context)
