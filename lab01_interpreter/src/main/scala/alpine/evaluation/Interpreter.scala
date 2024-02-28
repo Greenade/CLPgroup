@@ -114,7 +114,6 @@ final class Interpreter(
 
   def visitApplication(n: ast.Application)(using context: Context): Value =
     val f = n.function.visit(this)(using context)
-    // val a = n.arguments.map(Value.Builtin(_, Type.String))
     val a = n.arguments.map(e => e.value.visit(this)(using context))
     call(f,a)(using context) 
 
