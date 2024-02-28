@@ -95,10 +95,12 @@ final class Interpreter(
     Value.Builtin(n.value, Type.String)
 
   def visitRecord(n: ast.Record)(using context: Context): Value =
-    val labels = n.fields.map(e => Type.Labeled(e.label,e.value.visit(this)(using context).dynamicType))
     val exp = n.fields.map(e => e.value.visit(this)(using context))
+    val t = Type.Record.from(n.tpe) match
+      case Some(value) => value
+      case None => throw Panic("not a Record")
 
-    Value.Record(n.identifier, exp,Type.Record(n.identifier,labels))
+    Value.Record(n.identifier, exp,t)
 
   def visitSelection(n: ast.Selection)(using context: Context): Value =
     n.qualification.visit(this) match
@@ -391,7 +393,22 @@ final class Interpreter(
     import Interpreter.Frame
     scrutinee match
       case s: Value.Record =>
-        ???
+        // check type 
+        val t = Type.Record.from(pattern.tpe) match
+          case None => throw Panic("pattern is not a record")
+          case Some(value) => value
+        if s.dynamicType.structurallyMatches(t) then
+          // check the name
+          if s.identifier == pattern.identifier then
+            // check the fields
+            val l = s.fields
+            val l2 = pattern.fields
+            // not finished
+            None
+          else
+            None
+        else 
+          None
       case _ =>
         None
 
