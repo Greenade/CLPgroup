@@ -393,22 +393,23 @@ final class Interpreter(
     import Interpreter.Frame
     scrutinee match
       case s: Value.Record =>
-        // check type 
-        val t = Type.Record.from(pattern.tpe) match
-          case None => throw Panic("pattern is not a record")
-          case Some(value) => value
-        if s.dynamicType.structurallyMatches(t) then
-          // check the name
-          if s.identifier == pattern.identifier then
-            // check the fields
-            val l = s.fields
-            val l2 = pattern.fields
-            // not finished
-            None
-          else
-            None
-        else 
-          None
+        // check type of the pattern
+        Type.Record.from(pattern.tpe) match
+          case None => None
+          case Some(patternRecordType) => 
+            // check if types match
+            if s.dynamicType.structurallyMatches(patternRecordType) then
+              // check the name
+              if s.identifier == pattern.identifier then
+                // check the fields
+                val l = s.fields
+                val l2 = pattern.fields
+                // not finished
+                None
+              else
+                None
+            else 
+              None
       case _ =>
         None
 
