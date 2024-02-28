@@ -404,8 +404,23 @@ final class Interpreter(
                 // check the fields
                 val l = s.fields
                 val l2 = pattern.fields
-                // not finished
-                None
+                // check if the fields of the pattern are in the fields of the record
+                var allMatch = true
+                var ret = Map[symbols.Name,Value]() 
+                for 
+                  scr <- l
+                  pat <- l2 
+                do
+                  val m = matches(scr,pat.value)
+                  m match
+                    case Some(b) =>
+                      ret = ret ++ b
+                    case None => allMatch = false
+                // if all fields match return the bindings otherwise return None
+                if allMatch then
+                  Some(ret)
+                else 
+                  None
               else
                 None
             else 
