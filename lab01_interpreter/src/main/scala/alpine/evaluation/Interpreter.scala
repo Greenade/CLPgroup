@@ -448,10 +448,11 @@ final class Interpreter(
             if scrutinee.dynamicType != ascVal.visit(this)(using context).dynamicType then
               None
             else 
-              if scrutinee.equals(initVal.visit(this)(using context)) then
+              val va = initVal.visit(this)(using context)
+              if scrutinee.equals(va) then
                 //get the name of the binding
                 val name = pattern.nameDeclared
-                Some(Map(name -> scrutinee))
+                Some(Map(name -> va))
               else 
                 None
 
