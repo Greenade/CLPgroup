@@ -163,11 +163,9 @@ final class Interpreter(
     unexpectedVisit(n)
 
   def visitLet(n: ast.Let)(using context: Context): Value =
-    if n.binding.initializer.isDefined then
-      n.binding.initializer.get.visit(this)(using context)
-      n.body.visit(this)(using context);
-    else n.body.visit(this)(using context)
-
+    val newbindings = n.binding.initializer.get.visit(this)(using context)
+    val newContext = context.defining(n.binding.nameDeclared -> newbindings)
+    n.body.visit(this)(using newContext)
 
   def visitLambda(n: ast.Lambda)(using context: Context): Value =  
     Value.Lambda(n.body, n.inputs, context.flattened, n.tpe)
