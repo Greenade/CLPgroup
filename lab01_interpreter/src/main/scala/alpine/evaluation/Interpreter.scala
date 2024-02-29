@@ -168,10 +168,10 @@ final class Interpreter(
       n.body.visit(this)(using context);
     else n.body.visit(this)(using context)
 
+
   def visitLambda(n: ast.Lambda)(using context: Context): Value =  
-    // Value.Lambda(n.body, n.inputs, context.flattened,) 
-    // incomplete, need to also update context and transfom output in the correct type
-    ???
+    Value.Lambda(n.body, n.inputs, context.flattened, n.tpe)
+
 
   def visitParenthesizedExpression(n: ast.ParenthesizedExpression)(using context: Context): Value =
     n.inner.visit(this)(using context: Context)
