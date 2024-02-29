@@ -178,17 +178,16 @@ final class Interpreter(
 
   def visitAscribedExpression(n: ast.AscribedExpression)(using context: Context): Value =
     val op = n.operation
-    // val asc = n.ascription.visit(this)(using context).dynamicType 
-    val asc = n.ascription
+    val asc = n.ascription.tpe
     val exp = n.inner.visit(this)(using context)
     op match
       case Typecast.Widen => exp
       case Typecast.Narrow => 
-        if asc == exp.dynamicType then
+        if exp.dynamicType.isSubtypeOf(asc) then
           Value.some(exp)
         else Value.none
       case Typecast.NarrowUnconditionally => 
-        if asc == exp.dynamicType then
+        if exp.dynamicType.isSubtypeOf(asc) then
           exp
         else throw Panic("not a subtype")
       
