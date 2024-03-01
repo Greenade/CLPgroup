@@ -108,20 +108,20 @@ class Parser(val source: SourceFile):
   /** Parses and returns a prefix application. */
   private[parsing] def prefixExpression(): Expression =
     peek match
-      case Some(Token(K.Operator, s)) => 
+      case Some(Token(K.Operator, s)) => // if it's an operator, get the operator identifier ("&" => AND, ...) and check if there is a space after
         val a = operatorIdentifier()
         val identifier = Identifier(a._1.get.toString, a._2)
-        if (!noWhitespaceBeforeNextToken) then 
+        if (!noWhitespaceBeforeNextToken) then // if there is a space, no ambiguity, it's an operator so we return the Identifier
           identifier
-        else 
+        else // if there are no space, we backup and try to evaluate the token as a compoundExpression
           val backup = snapshot()
           compoundExpression() match
-            case _ : ErrorTree => 
+            case _ : ErrorTree => // if there is an error along the way, it means the token was an operator so we restore and return the Identifier
               restore(backup)
               identifier
-            case other =>
+            case other => // otherwise, there wasn't any error => it was a compoundExpression so we output the correct type
               PrefixApplication(identifier, other, identifier.site)
-      case _ => compoundExpression()
+      case _ => compoundExpression() // honestly not sure about this
 
   /** Parses and returns a compound expression. */
   private[parsing] def compoundExpression(): Expression =
@@ -446,19 +446,19 @@ class Parser(val source: SourceFile):
       value: () => T
   ): Labeled[T] =
     val backup = snapshot()
-    val label = takeIf((a) => a.kind == K.Identifier || a.kind.isKeyword)
-    label match
-      case Some(_) =>
+    val label = takeIf((a) => a.kind == K.Identifier || a.kind.isKeyword) // take if label is an Identifier or a Keyword
+    label match 
+      case Some(_) => // if it is, check if it's followed by a ':'
         take(K.Colon) match
-          case None => 
+          case None => // if it's not, it wasn't an Identifier but a value so backup and retrieve the value as a value
             restore(backup)
             val v = value()
             Labeled[T](None, v, v.site)
-          case Some(_) => 
+          case Some(_) => // if it is, get the value from the next token ('value()') and return the corresponding Labeled
             val v = value()
             Labeled(Some(label.get.site.text.toString), v, label.get.site.extendedTo(lastBoundary))
 
-      case _ =>
+      case _ => // if it's neither, just return a Labeled with the value of the next token
         val v = value()
         Labeled[T](None, v, v.site)
       
