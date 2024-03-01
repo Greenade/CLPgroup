@@ -444,7 +444,23 @@ class Parser(val source: SourceFile):
   private[parsing] def labeled[T <: Tree](
       value: () => T
   ): Labeled[T] =
-    ???
+    val backup = snapshot()
+    val label = takeIf((a) => a.kind == K.Identifier || a.kind.isKeyword)
+    label match
+      case Some(_) =>
+        take(K.Colon) match
+          case None => 
+            restore(backup)
+            val v = value()
+            Labeled[T](None, v, v.site)
+          case Some(_) => 
+            val v = value()
+            Labeled(Some(label.get.site.text.toString), v, label.get.site.extendedTo(lastBoundary))
+
+      case _ =>
+        val v = value()
+        Labeled[T](None, v, v.site)
+      
 
   /** Parses and returns a sequence of `element` separated by commas and delimited on the RHS  by a
    *  token satisfying `isTerminator`.
