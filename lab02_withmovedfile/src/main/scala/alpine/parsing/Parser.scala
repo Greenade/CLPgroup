@@ -350,7 +350,8 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a type identifier. */
   private def typeIdentifier(): Type =
-    ???
+    val s = expect(K.Identifier)
+    TypeIdentifier(s.site.text.toString, s.site)
 
   /** Parses and returns a list of type arguments. */
   private def typeArguments(): List[Labeled[Type]] =
