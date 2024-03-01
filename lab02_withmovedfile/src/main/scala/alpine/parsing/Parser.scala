@@ -57,8 +57,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a binding declaration. */
   private[parsing] def binding(initializerIsExpected: Boolean = true): Binding =
-  ???
-
+    ???
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
     ???
@@ -175,11 +174,13 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a term-level record expression. */
   private def recordExpression(): Record =
-    ???
+    val s = expect(K.Label)
+    record(() => recordExpressionFields(), (n, f, p) => Record(n, f, p))
 
   /** Parses and returns the fields of a term-level record expression. */
   private def recordExpressionFields(): List[Labeled[Expression]] =
-    ???
+    val fields = parenthesizedLabeledList(() => labeled(expression))
+    fields.map((f) => f.asInstanceOf[Labeled[Expression]])
 
   /** Parses and returns a conditional expression. */
   private[parsing] def conditional(): Expression =
@@ -400,7 +401,6 @@ class Parser(val source: SourceFile):
       make: (String, List[Field], SourceSpan) => T
   ): T =
     ???
-
   /** Parses and returns a parenthesized list of labeled value.
    *
    *  See also [[this.labeledList]].
@@ -410,7 +410,8 @@ class Parser(val source: SourceFile):
   private[parsing] def parenthesizedLabeledList[T <: Tree](
       value: () => T
   ): List[Labeled[T]] =
-    ???
+    val isTerminator = K.RParen.matches
+    inParentheses(() => commaSeparatedList(isTerminator, () => labeled(value)))
 
   /** Parses and returns a value optionally prefixed by a label.
    *
@@ -445,7 +446,11 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns `element` surrounded by a pair of parentheses. */
   private[parsing] def inParentheses[T](element: () => T): T =
-    ???
+    val s = expect(K.LParen)
+    val contents = recovering(K.RParen.matches, element)
+    if take(K.RParen) == None then
+      report(ExpectedTokenError(K.RParen, emptySiteAtLastBoundary))
+    contents
 
   /** Parses and returns `element` surrounded by a pair of braces. */
   private[parsing] def inBraces[T](element: () => T): T =
