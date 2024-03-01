@@ -436,23 +436,21 @@ final class Interpreter(
       scrutinee: Value, pattern: ast.Binding
   )(using context: Context): Option[Interpreter.Frame] =
     val asc = pattern.ascription
-    val init = pattern.initializer
     asc match
-      case None => None
+      case None => 
+        //get the name of the binding
+        val name = pattern.nameDeclared
+        Some(Map(name -> scrutinee))
       case Some(ascVal) =>
-        init match
-          case None => None
-          case Some(initVal) => 
-            if scrutinee.dynamicType != ascVal.visit(this)(using context).dynamicType then
-              None
-            else 
-              val va = initVal.visit(this)(using context)
-              if scrutinee.equals(va) then
-                //get the name of the binding
-                val name = pattern.nameDeclared
-                Some(Map(name -> va))
-              else 
-                None
+        val pType = pattern.tpe
+        val sType = scrutinee.dynamicType
+        if sType.isSubtypeOf(pType) then
+          //get the name of the binding
+          val name = pattern.nameDeclared
+          Some(Map(name -> scrutinee))
+        else
+          None
+           
 
 end Interpreter
 
