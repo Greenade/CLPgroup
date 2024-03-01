@@ -107,7 +107,21 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a prefix application. */
   private[parsing] def prefixExpression(): Expression =
-    ???
+    peek match
+      case Some(Token(K.Operator, s)) => 
+        val a = operatorIdentifier()
+        val identifier = Identifier(a._1.get.toString, a._2)
+        if (!noWhitespaceBeforeNextToken) then 
+          identifier
+        else 
+          val backup = snapshot()
+          compoundExpression() match
+            case _ : ErrorTree => 
+              restore(backup)
+              identifier
+            case other =>
+              PrefixApplication(identifier, other, identifier.site)
+      case _ => compoundExpression()
 
   /** Parses and returns a compound expression. */
   private[parsing] def compoundExpression(): Expression =
@@ -184,7 +198,13 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a conditional expression. */
   private[parsing] def conditional(): Expression =
-    ???
+    val initial = expect(K.If)
+    val cond = expression()
+    val then_ = expect(K.Then)
+    val success = expression()
+    val else_ = expect(K.Else)
+    val failure = expression()
+    Conditional(cond, success, failure, initial.site.extendedTo(lastBoundary))
 
   /** Parses and returns a match expression. */
   private[parsing] def mtch(): Expression =
