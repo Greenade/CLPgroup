@@ -334,7 +334,11 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a type-level expression. */
   private[parsing] def tpe(): Type =
-  ???
+    peek match
+      case Some(Token(K.Operator, _)) =>
+        Sum(typeArguments().map((a) => a.value),peek.get.site) //TODO: fix this 
+      case _ =>
+        primaryType()
 
   /** Parses and returns a type-level primary exression. */
   private def primaryType(): Type =
@@ -355,7 +359,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a list of type arguments. */
   private def typeArguments(): List[Labeled[Type]] =
-    ???
+  ???
 
   /** Parses and returns a type-level record expressions. */
   private[parsing] def recordType(): RecordType =
