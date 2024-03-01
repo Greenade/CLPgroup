@@ -474,11 +474,19 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns `element` surrounded by a pair of braces. */
   private[parsing] def inBraces[T](element: () => T): T =
-    ???
+    val s = expect(K.LBrace)
+    val contents = recovering(K.RBrace.matches, element)
+    if take(K.RBrace) == None then
+      report(ExpectedTokenError(K.RBrace, emptySiteAtLastBoundary))
+    contents
 
   /** Parses and returns `element` surrounded by angle brackets. */
   private[parsing] def inAngles[T](element: () => T): T =
-    ???
+    val s = expect(K.LAngle)
+    val contents = recovering(K.RAngle.matches, element)
+    if take(K.RAngle) == None then
+      report(ExpectedTokenError(K.RAngle, emptySiteAtLastBoundary))
+    contents
 
   /** Parses and returns `element` surrounded by a `left` and `right`. */
   private[parsing] def delimited[T](left: Token.Kind, right: Token.Kind, element: () => T): T =
