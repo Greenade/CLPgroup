@@ -389,7 +389,9 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a wildcard pattern. */
   def wildcard(): Wildcard =
-    ???
+    val s = expect(K.Underscore)
+    take()
+    Wildcard(s.site)
 
   /** Parses and returns a record pattern. */
   private def recordPattern(): RecordPattern =
@@ -398,6 +400,7 @@ class Parser(val source: SourceFile):
   /** Parses and returns the fields of a record pattern. */
   private def recordPatternFields(): List[Labeled[Pattern]] =
     ???
+
 
   /** Parses and returns a binding pattern. */
   private def bindingPattern(): Binding =
