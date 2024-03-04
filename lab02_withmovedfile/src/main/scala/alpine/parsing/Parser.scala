@@ -389,9 +389,9 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a wildcard pattern. */
   def wildcard(): Wildcard =
-    val s = expect(K.Underscore)
-    take()
-    Wildcard(s.site)
+    val s = expect(K.Underscore) // if it's an underscore, return a Wildcard with the site of the token
+    take() // consume the token
+    Wildcard(s.site) // return the Wildcard
 
   /** Parses and returns a record pattern. */
   private def recordPattern(): RecordPattern =
