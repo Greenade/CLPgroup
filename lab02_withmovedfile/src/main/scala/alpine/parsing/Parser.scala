@@ -57,7 +57,40 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a binding declaration. */
   private[parsing] def binding(initializerIsExpected: Boolean = true): Binding =
-    ???
+    val initial = expect(K.Let)
+    val identifier = expect(K.Identifier)
+    peek match
+      case Some(Token(K.Colon, _)) =>
+        take()
+        val ascription = Some(tpe())
+
+        peek match
+          case Some(Token(K.Eq, _)) =>
+            take()
+            val initializer = Some(expression())
+            Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+
+          case _ if initializerIsExpected =>
+            throw FatalError("expected initializer", emptySiteAtLastBoundary)
+
+          case _ =>
+           val initializer = None
+           Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+
+      case Some(Token(K.Eq, _)) =>
+        take()
+        val ascription = None
+        val initializer = Some(expression())
+        Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+
+      case _ if initializerIsExpected =>
+        throw FatalError("expected initializer", emptySiteAtLastBoundary)
+
+      case _ =>
+        val ascription = None
+        val initializer = None
+        Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
     ???
@@ -240,7 +273,9 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a let expression. */
   private[parsing] def let(): Let =
-    ???
+    val bind = binding()
+    val body = ???
+    Let(bind,body,bind.site.extendedTo(lastBoundary))
 
   /** Parses and returns a lambda or parenthesized term-level expression. */
   private def lambdaOrParenthesizedExpression(): Expression =
