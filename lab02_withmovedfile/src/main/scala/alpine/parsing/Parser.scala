@@ -74,22 +74,18 @@ class Parser(val source: SourceFile):
             throw FatalError("expected initializer", emptySiteAtLastBoundary)
 
           case _ =>
-           val initializer = None
-           Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+           Binding(identifier.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
 
       case Some(Token(K.Eq, _)) =>
         take()
-        val ascription = None
         val initializer = Some(expression())
-        Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+        Binding(identifier.toString,None,initializer,identifier.site.extendedTo(lastBoundary))
 
       case _ if initializerIsExpected =>
         throw FatalError("expected initializer", emptySiteAtLastBoundary)
 
-      case _ =>
-        val ascription = None
-        val initializer = None
-        Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+      case _ =>F
+        Binding(identifier.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
@@ -131,7 +127,6 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns an infix expression. */
   private[parsing] def infixExpression(precedence: Int = ast.OperatorPrecedence.min): Expression =
-
     ???
 
   /** Parses and returns an expression with an optional ascription. */
@@ -158,7 +153,37 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a compound expression. */
   private[parsing] def compoundExpression(): Expression =
-    ???
+    val primaryExp = primaryExpression()
+    compoundExpression2(primaryExp)
+
+  private[parsing] def compoundExpression2(primaryExp : Expression): Expression =
+    peek match
+      case Some(Token(K.Dot, _)) => // check if the next token is a Dot (for selection)
+        take()
+        peek match
+          case Some(Token(K.Identifier, _)) => // check if the next token is an Identifier
+            val id = identifier()
+            compoundExpression2(Selection(primaryExp, id, primaryExp.site.extendedTo(lastBoundary)))
+          case Some(Token(K.Integer, _)) => // check if the next token is an Integer
+            val integ = integerLiteral()
+            compoundExpression2(Selection(primaryExp, integ, primaryExp.site.extendedTo(lastBoundary)))
+          case _ =>
+            // try to parse an infix expression
+            val infixExp = infixExpression()
+
+            // change the infix operator to an identifier
+            infixExp match
+              case InfixApplication(n,_,_,_) =>
+                compoundExpression2(Selection(primaryExp, n, primaryExp.site.extendedTo(lastBoundary)))
+              case _ => 
+                // throw an error if the infix expression is not an InfixApplication
+                throw FatalError("expected infix expression, identifier or integer after a .", emptySiteAtLastBoundary)
+      case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for application)
+        take()
+        val arguments = parenthesizedLabeledList(() => expression())
+        compoundExpression2(Application(primaryExp, arguments, primaryExp.site.extendedTo(lastBoundary)))
+      case _ => primaryExp
+
 
   /** Parses and returns a term-level primary exression.
    *
