@@ -168,17 +168,13 @@ class Parser(val source: SourceFile):
           case Some(Token(K.Integer, _)) => // check if the next token is an Integer
             val integ = integerLiteral()
             compoundExpression2(Selection(primaryExp, integ, primaryExp.site.extendedTo(lastBoundary)))
-          case _ =>
-            // try to parse an infix expression
-            val infixExp = infixExpression()
-
-            // change the infix operator to an identifier
-            infixExp match
-              case InfixApplication(n,_,_,_) =>
-                compoundExpression2(Selection(primaryExp, n, primaryExp.site.extendedTo(lastBoundary)))
-              case _ => 
-                // throw an error if the infix expression is not an InfixApplication
-                throw FatalError("expected infix expression, identifier or integer after a .", emptySiteAtLastBoundary)
+          case _ => 
+              operator() match
+                case i : Identifier => 
+                  compoundExpression2(Selection(primaryExp, i, primaryExp.site.extendedTo(lastBoundary)))
+                case _ =>
+                  throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
+              
       case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for application)
         take()
         val arguments = parenthesizedLabeledList(() => expression())
