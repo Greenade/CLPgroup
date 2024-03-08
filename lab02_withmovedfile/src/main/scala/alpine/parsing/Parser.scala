@@ -411,24 +411,6 @@ class Parser(val source: SourceFile):
             ty
       case _ =>
         primaryType()
-  // private[parsing] def tpe(): Type =
-  //   peek match
-  //     case Some(Token(K.Identifier, _)) =>
-  //       var ty = primaryType()
-  //       peek match
-  //         case Some(Token(K.Operator, _)) =>
-  //           var l = List(ty)
-  //           take()
-  //           var s2 = peek.get.site
-  //           var ty2 = primaryType()
-  //           print (l)
-  //           l :+ ty2
-  //           print (l)
-  //           Sum(l, s2)
-  //         case _ =>
-  //           ty
-  //     case _ =>
-  //       primaryType()
 
   /** Parses and returns a type-level primary exression. */
   private def primaryType(): Type =
