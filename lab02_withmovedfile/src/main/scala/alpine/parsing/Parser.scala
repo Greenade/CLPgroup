@@ -87,6 +87,7 @@ class Parser(val source: SourceFile):
       case _ =>F
         Binding(identifier.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
+
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
     ???
@@ -395,10 +396,40 @@ class Parser(val source: SourceFile):
   /** Parses and returns a type-level expression. */
   private[parsing] def tpe(): Type =
     peek match
-      case Some(Token(K.Operator, _)) =>
-        Sum(typeArguments().map((a) => a.value),peek.get.site) //TODO: fix this 
+      case Some(Token(K.Identifier, _)) =>
+        var ty = primaryType()
+        peek match
+          case Some(Token(K.Operator, _)) =>
+            take()
+            var s2 = peek.get.site
+            var ty2 = primaryType()
+            peek match
+              case Some(Token(K.Operator, _)) =>
+                take()
+                var s3 = peek.get.site
+                var ty3 = primaryType()
+                Sum(List(ty,ty2,ty3),s3)
+              case _ => 
+                Sum(List(ty,ty2),s2)
+                // ???
+          case _ =>
+            ty
       case _ =>
         primaryType()
+
+    // peek match
+    //   case Some(Token(K.Identifier, _)) =>
+    //     var ty = primaryType()
+    //     peek match
+    //       case Some(Token(K.Operator, _)) =>
+    //         take()
+    //         var s2 = peek.get.site
+    //         var tp2 = tpe().visit(this)
+    //         Sum(List(ty,tp2),s2)
+    //       case _ =>
+    //         ty
+    //   case _ =>
+    //     primaryType()
 
   /** Parses and returns a type-level primary exression. */
   private def primaryType(): Type =
