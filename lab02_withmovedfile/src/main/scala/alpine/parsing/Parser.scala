@@ -58,6 +58,7 @@ class Parser(val source: SourceFile):
   /** Parses and returns a binding declaration. */
   private[parsing] def binding(initializerIsExpected: Boolean = true): Binding =
     ???
+
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
     ???
