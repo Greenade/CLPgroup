@@ -411,25 +411,28 @@ class Parser(val source: SourceFile):
                 Sum(List(ty,ty2,ty3),s3)
               case _ => 
                 Sum(List(ty,ty2),s2)
-                // ???
           case _ =>
             ty
       case _ =>
         primaryType()
-
-    // peek match
-    //   case Some(Token(K.Identifier, _)) =>
-    //     var ty = primaryType()
-    //     peek match
-    //       case Some(Token(K.Operator, _)) =>
-    //         take()
-    //         var s2 = peek.get.site
-    //         var tp2 = tpe().visit(this)
-    //         Sum(List(ty,tp2),s2)
-    //       case _ =>
-    //         ty
-    //   case _ =>
-    //     primaryType()
+  // private[parsing] def tpe(): Type =
+  //   peek match
+  //     case Some(Token(K.Identifier, _)) =>
+  //       var ty = primaryType()
+  //       peek match
+  //         case Some(Token(K.Operator, _)) =>
+  //           var l = List(ty)
+  //           take()
+  //           var s2 = peek.get.site
+  //           var ty2 = primaryType()
+  //           print (l)
+  //           l :+ ty2
+  //           print (l)
+  //           Sum(l, s2)
+  //         case _ =>
+  //           ty
+  //     case _ =>
+  //       primaryType()
 
   /** Parses and returns a type-level primary exression. */
   private def primaryType(): Type =
@@ -450,7 +453,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a list of type arguments. */
   private def typeArguments(): List[Labeled[Type]] =
-  ???
+    ???
 
   /** Parses and returns a type-level record expressions. */
   private[parsing] def recordType(): RecordType =
