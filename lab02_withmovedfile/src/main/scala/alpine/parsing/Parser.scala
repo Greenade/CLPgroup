@@ -128,6 +128,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns an infix expression. */
   private[parsing] def infixExpression(precedence: Int = ast.OperatorPrecedence.min): Expression =
+    val asc = ascribed()
     ???
 
   /** Parses and returns an expression with an optional ascription. */
@@ -168,12 +169,14 @@ class Parser(val source: SourceFile):
           case Some(Token(K.Integer, _)) => // check if the next token is an Integer
             val integ = integerLiteral()
             compoundExpression2(Selection(primaryExp, integ, primaryExp.site.extendedTo(lastBoundary)))
-          case _ => 
+          case Some(Token(K.Operator, _)) => 
               operator() match
-                case i : Identifier => 
+                case i : Identifier =>
                   compoundExpression2(Selection(primaryExp, i, primaryExp.site.extendedTo(lastBoundary)))
-                case _ =>
+                case _ => 
                   throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
+          case _ =>     
+            throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
               
       case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for application)
         take()
