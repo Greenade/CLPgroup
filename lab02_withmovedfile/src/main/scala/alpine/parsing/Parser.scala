@@ -84,7 +84,7 @@ class Parser(val source: SourceFile):
       case _ if initializerIsExpected =>
         throw FatalError("expected initializer", emptySiteAtLastBoundary)
 
-      case _ =>F
+      case _ =>
         Binding(identifier.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
 
