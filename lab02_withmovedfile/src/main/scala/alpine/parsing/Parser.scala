@@ -300,7 +300,7 @@ class Parser(val source: SourceFile):
   /** Parses and returns a let expression. */
   private[parsing] def let(): Let =
     val bind = binding()
-    val body = ???
+    val body = inBraces(() => expression())
     Let(bind,body,bind.site.extendedTo(lastBoundary))
 
   /** Parses and returns a lambda or parenthesized term-level expression. */
