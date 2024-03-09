@@ -127,9 +127,40 @@ class Parser(val source: SourceFile):
     infixExpression()
 
   /** Parses and returns an infix expression. */
-  private[parsing] def infixExpression(precedence: Int = ast.OperatorPrecedence.min): Expression =
-    val asc = ascribed()
-    ???
+  private[parsing] def infixExpression(precedence: Int = ast.OperatorPrecedence.min): Expression = infixExpressionHelper(ascribed(), precedence)
+
+  /** pseudocode of the algorithm : 
+  lookahead := peek next token
+  while lookahead is a binary operator whose precedence is >= min_precedence
+      op := lookahead
+      advance to next token
+      rhs := parse_primary ()
+      lookahead := peek next token
+      while lookahead is a binary operator whose precedence is greater
+                than op's, or a right-associative operator
+                whose precedence is equal to op's
+          rhs := parse_expression_1 (rhs, precedence of op + (1 if lookahead precedence is greater, else 0))
+          lookahead := peek next token
+      lhs := the result of applying op with operands lhs and rhs
+  return lhs */
+  private[parsing] def infixExpressionHelper(lhsGiven : Expression, precedence: Int = ast.OperatorPrecedence.min): Expression =
+    val backup = snapshot()
+    var lhs = lhsGiven // mutable left hand side
+    var lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
+
+    while ???/*lookAhead.precedence >= precedence*/ do
+      val op = lookAhead
+      var rhs = expression() // not sure ??
+      val backup = snapshot()
+      lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
+
+      while ???/*lookAhead.precedence > precedence*/ do
+        val newPrecedence = ??? /*op.precedence + (if lookAhead.precedence > op.precedence then 1 else 0)*/
+        rhs = infixExpressionHelper(rhs,newPrecedence)
+        val backup = snapshot()
+        lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
+      lhs = ???//BinaryOperation(op, lhs, rhs, op.site.extendedTo(lastBoundary))
+    lhs
 
   /** Parses and returns an expression with an optional ascription. */
   private[parsing] def ascribed(): Expression =
