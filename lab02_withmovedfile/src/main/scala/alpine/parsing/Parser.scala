@@ -91,7 +91,22 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
-    ???
+    val funToken = expect(K.Fun)
+    val funId = functionIdentifier()
+    expect(K.LParen)
+    val parameterList = valueParameterList()
+    expect(K.RParen)
+
+    val retType = peek match
+      case Some(Token(K.Arrow, _)) =>
+        take(); Some(tpe())
+      case Some(_) | None => None
+
+    expect(K.LBrace)
+    val body = expression()
+    expect(K.RBrace)
+
+    Function(funId, List.empty, parameterList, retType, body, funToken.site)
 
   /** Parses and returns the identifier of a function. */
   private def functionIdentifier(): String =
@@ -120,6 +135,7 @@ class Parser(val source: SourceFile):
         None
       case _ =>
         throw FatalError("expected wildcard, identifier or keyword", emptySiteAtLastBoundary)
+
   /** Parses and returns a parameter declaration. */
   private[parsing] def parameter(): Declaration =
     val label = parameterLabelHelper()
@@ -201,7 +217,14 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns an expression with an optional ascription. */
   private[parsing] def ascribed(): Expression =
-    ???
+    val expr = prefixExpression()
+    peek match
+      case Some(Token(K.At | K.AtQuery | K.AtBang, _)) =>
+        val typeCast = typecast()
+        val ascriptionType = tpe()
+        AscribedExpression(expr, typeCast, ascriptionType, expr.site)
+      case Some(_) | None =>
+        expr
 
   /** Parses and returns a prefix application. */
   private[parsing] def prefixExpression(): Expression =
@@ -334,7 +357,10 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a match expression. */
   private[parsing] def mtch(): Expression =
-    ???
+    val matchToken = expect(K.Match)
+    val expr = expression()
+    val mb = matchBody()
+    Match(expr, mb, matchToken.site)
 
   /** Parses and returns a the cases of a match expression. */
   private def matchBody(): List[Match.Case] =
