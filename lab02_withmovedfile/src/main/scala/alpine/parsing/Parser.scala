@@ -107,9 +107,32 @@ class Parser(val source: SourceFile):
   private[parsing] def valueParameterList(): List[Parameter] =
     ???
 
+
+  private[parsing] def parameterLabelHelper(): Option[String] =
+    peek match
+      case Some(Token(K.Identifier, _)) =>
+        val s = expect(K.Identifier)
+        Some(s.site.text.toString)
+      case Some(Token(t,_)) if t.isKeyword =>
+        val s = take()
+        Some(s.get.site.text.toString)
+      case Some(Token(K.Underscore,_)) =>
+        take()
+        None
+      case _ =>
+        throw FatalError("expected wildcard, identifier or keyword", emptySiteAtLastBoundary)
   /** Parses and returns a parameter declaration. */
   private[parsing] def parameter(): Declaration =
-    ???
+    val label = parameterLabelHelper()
+    val id = expect(K.Identifier)
+    peek match
+      case Some(Token(K.Colon, _)) =>
+        take()
+        val t = tpe()
+        Parameter(label,id.site.text.toString,Some(t),id.site.extendedTo(lastBoundary))
+      case _ =>
+        Parameter(label,id.site.text.toString,None,id.site.extendedTo(lastBoundary))
+
 
   /** Parses and returns a type declaration. */
   private[parsing] def typeDeclaration(): TypeDeclaration =
@@ -155,7 +178,7 @@ class Parser(val source: SourceFile):
         while pre >= precedence do
           val op = lookAhead
           val opSite = operatorId._2
-          var rhs = expression() // not sure ??
+          var rhs = ascribed()
           val backup = snapshot()
           operatorId = operatorIdentifier() // get the operator identifier
           lookAhead = operatorId._1
