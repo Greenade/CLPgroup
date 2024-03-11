@@ -105,8 +105,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a list of parameter declarations in parentheses. */
   private[parsing] def valueParameterList(): List[Parameter] =
-    ???
-
+    commaSeparatedList(K.RParen.matches, () => parameter().asInstanceOf[Parameter])
 
   private[parsing] def parameterLabelHelper(): Option[String] =
     peek match
@@ -179,25 +178,21 @@ class Parser(val source: SourceFile):
           val op = lookAhead
           val opSite = operatorId._2
           var rhs = ascribed()
-          val backup = snapshot()
           operatorId = operatorIdentifier() // get the operator identifier
           lookAhead = operatorId._1
           lookAhead match
             case None => 
-              restore(backup)
-              lhs
+              InfixApplication(Identifier(op.get.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
             case Some(o) =>
               pre = o.precedence
               var stop = false
               while pre > precedence && !stop do
                 val newPrecedence = op.get.precedence + (if o.precedence > op.get.precedence then 1 else 0)
                 rhs = infixExpressionHelper(rhs,newPrecedence)
-                val backup = snapshot()
                 operatorId = operatorIdentifier() // get the operator identifier
                 lookAhead = operatorId._1
                 lookAhead match
                   case None => 
-                    restore(backup)
                     stop = true
                   case Some(o) =>
                     pre = o.precedence
