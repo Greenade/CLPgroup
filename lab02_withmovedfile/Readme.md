@@ -1,52 +1,73 @@
+# Lab 02 - Parser
 
-# Lab 01 - Interpreter
 
-Welcome to the Compiler course 2024!
-
-In this first lab, you will implement an interpreter for the Alpine language, the language for which we will write the entire compiler during the semester.
-
-**This lab is due on Friday 1st of March at 7pm**.
-
-## Preparing the environment
-
-We will use the following tools, make sure to install them before starting the lab:
-
-* `scala`, `sbt`, …: The whole project will be done in Scala. Hence, you need to have Scala and sbt installed on your machine. You can see a tutorial for installing the toolchain [here](https://docs.scala-lang.org/getting-started/index.html).
-* If you use Visual Studio Code, you can install the `Metals` extension to have a better experience with Scala. You can find an up-to-date tutorial to install it [here](https://scalameta.org/metals/docs/editors/vscode/).
-* If you use IntelliJ, you can install the Scala plugin to have a better experience with Scala. You can find an up-to-date tutorial to install it [here](https://www.jetbrains.com/help/idea/get-started-with-scala.html).
-* If you use another editor, feel free to check [Metals' documentation](https://scalameta.org/metals/docs/) to see if there is a plugin for your editor.
-
-### Common issues
-
-#### No autocompletion on Visual Studio Code (VSC)
-
-If the autocompletion does not work, check the following on VSC:
-
-* Metals is indeed installed.
-* `build.sbt` file is at the root of your project. This means that the folder that you open inside Visual Studio Code is the folder that contains the `build.sbt` file.
-* Make sure to import the build inside Metals. You can do it by either pressing `Ctrl+Shift+P` and typing `Import build` or clicking on the "Metals" tab in the left panel and then clicking on the "Import build" under the "Build commands" panel.
-  * A loading icon should appear at the bottom-right and should disappear after a few seconds. If it does not, you can click on the icon and see what is the issue.
-  * If it does not work, you can select "Clean and restart build server" and click on "Reset workspace" in the pop up.
-  * If the issue persists, you can try to restart Visual Studio Code.
-  * If it still does not work, you can see the logs by clicking on the "Check logs" button under the "Help and feedback" pane in the "Metals" tab to inspect it.
+In this second lab, you will implement the parser for the Alpine compiler.
 
 ## Obtaining the lab files
 
-To get the lab files, clone this repository. To do so, open a terminal and run the following command:
+To get the lab files, you have 2 options: 
+* pull this repository if you already cloned it last week. Otherwise, you can clone it by running the following command:
+
+  ```console
+  $ git pull
+  ```
+
+  or
+
+  ```console
+  $ git clone https://github.com/epfl-lara/compiler2024-labs-public.git
+  ```
+
+* Download the zip file on Moodle
+
+Then take your current `alpine` project, i.e., where you implemented the interpreter, and:
+
+* copy the `parsing/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/alpine/parsing`
+* copy the `util/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/alpine/util`
+* copy the `Main.scala` file from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/Main.scala`
+* copy the `driver/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/alpine/driver`
+* copy the new test files by copying the `test/parsing` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/test/scala/alpine/parsing`
+* copy the `test/util/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/test/scala/alpine/util`
+* remove the `lib/` directory from your `alpine` project
+* move the interpreter tests from `src/test/scala/alpine/evaluation` to `archive/test/evaluation`. This is because these tests rely on the typechecking phase of the compiler, that we will implement later in the semester. So we keep them here to add them back later.
+
+Your project directory structure should look like something like this:
 
 ```console
-$ git clone https://github.com/epfl-lara/compiler2024-labs-public.git
+alpine/
+├── archive/
+│   ├── test/
+│   │   ├── evaluation/                     <----- MOVE THE INTERPRETER TESTS HERE  
+│   │   │   ├── InterpreterTest.scala
+├── lib/                                     <----- DELETE THIS DIRECTORY
+├── src/
+│   ├── main/
+│   │   ├── scala/
+│   │   │   ├── alpine/
+│   │   │   │   ├── driver/                  <----- COPY FROM THIS WEEK FILES
+│   │   │   │   ├── evaluation/
+│   │   │   │   │   ├── Interpreter.scala
+│   │   │   │   ├── parsing/                 <----- COPY FROM THIS WEEK FILES
+│   │   │   │   │   ├── Parser.scala
+│   │   │   │   │   ├── ...
+│   │   │   │   ├── util/                    <----- COPY FROM THIS WEEK FILES 
+│   │   │   │   │   ├── ...
+│   │   │   ├── Main.scala                   <----- COPY FROM THIS WEEK FILES (replace the current one)
+├── test/
+│   ├── scala/
+│   │   ├── alpine/
+│   │   │   ├── evaluation/                  <----- MOVED TO ARCHIVE
+│   │   │   ├── parsing/                     <----- COPY FROM THIS WEEK FILES
+│   │   │   │   ├── ...
+│   │   │   ├── util/                        <----- COPY FROM THIS WEEK FILES
 ```
 
-Then the `interpreter` folder contains this week lab files.
 
 ## Submit your work
 
-We are using an automatic grading infrastructure to grade your work. You will submit your work on Moodle and automatically receive your grade after a few minutes. To submit your work, go to this week assignment on Moodle and upload the following file:
+To submit your work, go to this week assignment on Moodle and upload the following file:
 
-* `src/main/scala/alpine/evaluation/Interpreter.scala`
-
-When you submit your work, it will create a "Draft" submission. You then have to click on the "Submit" button to submit your work. DO NOT FORGET TO DO THIS STEP! You will receive an email confirming that your work has been submitted. If you do not receive this email, it means that your work has not been properly submitted.
+* `src/main/scala/alpine/parser/Parser.scala`
 
 ## General idea of the project
 
@@ -56,530 +77,420 @@ Let's recall the global idea of a simple compiler's pipeline:
 Source code -> Lexer -> Parser -> Type checking -> Assembly generation
 ```
 
-To recap,
+The lexer will generate a sequence of tokens from the source code. The parser will generate an AST from the sequence of tokens.
 
-* The `Lexer` is responsible for transforming the source code into a list of tokens (words, numbers, symbols, etc.). It is the first step of the pipeline.
-* The `Parser` is responsible for transforming the list of tokens into an abstract syntax tree (AST). It is the second step of the pipeline.
-* The `Type checking` is responsible for checking that the program is well-typed. It is the third step of the pipeline.
-* The `Assembly generation` is responsible for generating the machine code. It is the last step of the pipeline.
+Let consider an example:
 
-This week, we will not do a *compiler* but an *interpreter*. The difference is that we will not generate machine code but execute the program directly. Hence, the pipeline is simplified:
-
-```
-Source code -> Lexer -> Parser -> Type checker -> Interpreter
+```swift
+let main = exit(1)
 ```
 
-Here, the `Interpreter` is responsible for executing the program. It is the last step of the pipeline. Note that the interpreter interprets a `TypedProgram` and not a `Program`. This means that the type checker is run on the AST to solve references to types and variables.
+The lexer will generate the following sequence of tokens:
 
-### Lab formalities
-
-In this lab, you will modify only the `evaluation/Interpreter.scala` file. You can obviously check other files to have a better understanding of the project, but you should not modify them.
-
-To run the program, you can use the following SBT command (inside the `sbt` terminal launched from the root of the project, i.e., where the `build.sbt` file is located):
-
-```console
-run -i <input_file>
+```scala
+List(
+  Let(0: 3), // let
+  Identifier(4: 8), // main
+  Eq(9: 10), // = 
+  Identifier(11: 15), // exit
+  LParen(15: 16), // (
+  Integer(16: 17), // 1
+  RParen(17: 18) // )
+)
 ```
 
-This will run the interpreter on the file `<input_file>` (an Alpine source file).
+`Let`, `Identifier`, `Eq`, `LParen`, `Integer`, `RParen` are tokens. The first element of each tuple is the position of the token in the source code.
 
-We provide you a test suite (comprising unit, integration, and end-to-end tests) to check your work. To run it use the following SBT command:
+The parser will generate the following AST:
 
-```console
-test
-```
-
-These also are the tests on which your work will be graded.
-
-### _Alpine_ language
-
-You can find a description of the language inside the [`language_desc.md`](./language_desc.md)/['language_desc.html`](./language_desc.html) file. It contains a small overview of the language, its syntax, and its semantics.
-
-### The AST
-
-Let's recall the pipeline seen above. The `Parser` is responsible for transforming the list of tokens into an Abstract Syntax Tree (AST).
-
-The interpreter will traverse the AST produced by the parser and execute the program.
-
-The AST is a tree that represents the structure of the program. It is a data structure that is used to represent the program in a way that is easy to manipulate. For instance, the following program:
-
-```
-let x = 1
-```
-
-is represented by the following AST:
-
-```
-IArray(
+```scala
+List(
   Binding(
-    x, // identifier
-    None, // explicit type on the definition
-    Some( // initialisation content (i.e. the 1), if exists
-      IntegerLiteral(
-        1, // literal value
-        <input>:1:9-1:10 // position of the literal
+    main, // identifier
+    None, // type
+    Some( // initializer
+      Application( // function call
+        Identifier(exit, hello.al: 1: 12 - 1: 16),
+        List( // arguments
+          Labeled(
+            None,
+            IntegerLiteral(1, hello.al: 1: 17 - 1: 18),
+            hello.al: 1: 17 - 1: 18
+          )
+        ),
+        hello.al: 1: 12 - 1: 19
       )
-    ), 
-    <input>:1:1-1:10 // position of the binding
+    ),
+    hello.al: 1: 1 - 1: 19
   )
 )
 ```
 
-If you have taken the CS-214 Software Construction course: yes, it looks similar to the evaluator we have seen, though more complete (and therefore complex).
+The AST is more expressive than the sequence of tokens as it represents the structure of the source code.
 
-You can find the definitions of all the types of the AST in the `alpine.ast.Trees` file (`src/main/scala/alpine/ast/Trees.scala` file.)
+## General structure of the parser and the codebase
 
-## Implementing the interpreter
+The parser consummes a sequence of tokens as a stream to produce an AST.
 
-You will implement the interpreter in the `alpine.evaluation.Interpreter` class (`src/main/scala/alpine/evaluation/Interpreter.scala` file.)
+The parsing is composed of multiple functions. Each function is responsible for parsing a specific part of the grammar. For example, the `binding` function is responsible for parsing a binding.
 
-### Using SBT
+Here is the available API to implement the parser:
 
-To run files with the interpreter, you can use the following SBT command (inside the `sbt` terminal launched from the root of the project, i.e., where the `build.sbt` file is located):
+* `peek`: looks at the next token without consuming it.
+  * it returns either `Some(token)` or `None` if the stream is empty (i.e. we reach an EOF).
+* `take()`: consumes the next token
+  * it returns either `Some(token)` or `None` if the stream is empty (i.e. we reach an EOF), and consumes a token from the stream.
+* `takeIf(pred: Token => Boolean)`: takes a predicate, and consumes and returns the next token **if it satisfies the predicate**
+* `take(k: Token.Kind)`: shorthand for `takeIf(_.kind == k)`
+* `expect(k: Token.Kind)`: shorthand for `take(k)).getOrElse(throw  FatalError(…))`
+  * i.e. it takes the next token and throws an error if it is not the expected kind of token.
+* `expect(construct: String, pred: Token => Boolean)`: same as `expect` but takes a construct to include in the error message.
+* `report`: reports an error while parsing.
+* `snapshot`: returns the current state of the parser
+* `restore` : restores the state of the parser from a backup returned by `backup`
 
+### New elements of the language
+
+Throughout the lab, we will see new elements of the language.
+
+#### Types
+
+In _Alpine_, you can create type declarations:
+
+```swift
+type Vector2 =
+  #vector2(x: Float, y: Float)
+type Circle =
+  #circle(origin: Vector2, radius: Float)
+type Rectangle =
+  #rectangle(origin: Vector2, dimension: Vector2)
 ```
-run -i <input_file>
+
+There is also closed union types (also known as a sum type):
+
+```swift
+type OptionInt = #none | #some(Int)
 ```
 
-To test your code, you can use the following SBT command:
+In this case, a value of type `OptionInt` can be either a `#none` or a `#some(Int)`.
 
+You can also define recursive types:
+
+```swift
+type List = #empty | #list(head: Any, tail: List)
 ```
-test
-```
 
-### Step 0: Entrypoint (provided)
+For reference, the grammar is provided inside the [`grammar.md`](./grammar.md)/[`grammar.html`](./grammar.html) file.
 
-The entrypoint of an *Alpine program* is its `main` variable (i.e. variable called `main`.) The interpreter has to find the expression contained in the `main` variable and interpret it.
+## Implementation
 
-Inside the interpreter class, you will find the `run` method that is the entry point of the *interpreter*. The variable of type `TypedProgram` contains the AST of the *Alpine* program to interpret.
+### Some hints
+
+The parser is written in composing functions, that each parses a part of the grammar.
+
+For example, let's have a look at the `primarayExpression()` function. This function `peek` at the next token, and depending on its nature, calls the appropriate function to parse the corresponding producing rule of the grammar.
 
 <div class='snippet'>
 
 ```scala
-/** Evaluates the entry point of the program. */
-def run(): Int =
-  val e = syntax.entry.getOrElse(throw Panic("no entry point"))
-  try
-    e.visit(this)(using Context())
-    0
-  catch case e: Interpreter.Exit =>
-    e.status
+private[parsing] def primaryExpression(): Expression =
+  peek match
+    case Some(Token(K.Identifier, s)) =>
+      identifier()
+    case Some(Token(K.True, _)) =>
+      booleanLiteral()
+    case Some(Token(K.False, _)) =>
+      booleanLiteral()
+    case Some(Token(K.Integer, _)) =>
+      integerLiteral()
+    case Some(Token(K.Float, _)) =>
+      floatLiteral()
+    case Some(Token(K.String, _)) =>
+      stringLiteral()
+    case Some(Token(K.Label, _)) =>
+      recordExpression()
+    case Some(Token(K.If, _)) =>
+      conditional()
+    case Some(Token(K.Match, _)) =>
+      mtch()
+    case Some(Token(K.Let, _)) =>
+      let()
+    case Some(Token(K.LParen, _)) =>
+      lambdaOrParenthesizedExpression()
+    case Some(t) if t.kind.isOperatorPart =>
+      operator()
+    case _ =>
+      recover(ExpectedTree("expression", emptySiteAtLastBoundary), ErrorTree.apply)
 ```
 
-<p class='snippet-path'>src/main/scala/alpine/evaluation/Interpreter.scala</p>
+<p class='snippet-path'>src/main/scala/alpine/parsing/Parser.scala</p>
 </div>
 
 
-Note that the `run` method is already implemented. It calls the `visit` method on the expression contained in the `main` variable which can be retrieved by calling the `entry` method on the `TypedProgram` instance.
+In general, each function parses a producing rule of the grammar (see [`grammar.md`](./grammar.md)).
 
-The general idea is that the interpreter will successively visit the nodes of the AST and execute the program while visiting.
+An important thing to understand and be careful with is when a token is peeked and when it is taken. This is an important aspect of the parser, so think about it before starting to implement.
 
-### Step 1: Parenthesized expressions
+Some of the functions in the parser are high order parsers: this means that they take another parser as argument. For example, `commaSeparatedList` takes a parser as argument and returns a parser that parses a list of elements separated by commas.
 
-A parenthesized expression is an expression that is enclosed in parentheses. In _Alpine_, a parenthesized expression is written as `(<expression>)`. The interpreter should evaluate parenthesized expressions when it visits a `ParenthesizedExpression` node. To do so, implement the function `visitParenthesizedExpression` in the `Interpreter` class, that should evaluate to the value of the expression.
+One last interesting aspect about our pipeline is that some operators are not tokenized by the tokenizer. For example, `>=` is tokenized as two tokens `>` and `=`. This is because the `>` can be used in other contexts (s.t. `List<Int>`). Therefore, the parser is responsible from handling this case and create the operator or not depending on the context. This is an important technique in the world of compilers.
 
-### Step 2: Records
+### Your Task: Implement the Parser
 
-A record is a collection of fields. Each field has a name and a value, which can be of any type. The record type is a way to group several values together. See it as a `data class` in Kotlin, a `struct` in C, a `case class` in Scala, a `record` in Java, etc.
+We suggest to start implementing by `conditional()`. 
 
-In _Alpine_, a record (e.g. `#pair(x: 1, y: 2)`) is uniquely identified by:
+#### Some hints about how to parse the grammar
 
-* its name (i.e. identifier, e.g. `pair` for the record `#pair`)
-* its _arity_ (i.e. the number of fields it has, e.g. here `#pair` has 2)
-* the types of the fields it contains (e.g. here `Int` and `Int`)
-* its field labels (e.g. here `x` and `y`)
+This section contains a non-exhaustive list of hints to help you parse and understand the grammar.
 
-The interpreter should be able to create record instances when it visits a `Record` node. To do so, implement the function `visitRecord` in the `Interpreter` class, that should evaluate to a `Record` value.
+##### Compound expressions `compoundExpression()`
 
-### Step 3: Conditional expressions
+Look at the grammar and we can see that a compound expression is primary expression followed by a '.', a '(', or nothing. Here are some examples and the corresponding type of the node produced by the parser when the primary expression is followed by '.':
 
-A conditional expression is an expression that evaluates to a value depending on a condition. In _Alpine_, a conditional expression is written as `if <condition> then <then-branch> else <else-branch>`. The interpreter should evaluate conditional expressions when it visits a `Conditional` node:
+* `#record(a: 1).1`: `Selection(Record(…), IntegerLiteral(1, …))`
+* `#record(a: 1).a`: `Selection(Record(…), Identifier("a", …))`
+* `#record(a: 1).+`: `Selection(Record(…), Identifier("+", …))`
+* `a.b`: `Selection(Identifier("a", …), Identifier("b", …)`
 
-* evaluate/visit the `condition`
-* if the condition evaluates to `true`, evaluate/visit the `then-branch` (`successCase`) and return its value
-* if the condition evaluates to `false`, evaluate/visit the `else-branch` (`failureCase`) and return its value
+##### Prefix expressions `prefixExpression()`
 
-You can now implement the function `visitConditional` in the `Interpreter` class.
-
-### Step 4: Ascribed expressions
-
-An ascribed expression is an expression that is annotated with a type. In _Alpine_, an ascribed expression is written as `<expression> [@ | @! | @?] <type>`. The interpreter should evaluate ascribed expressions when it visits an `AscriptionExpression` node.
-
-There is multiple ways of changing the type of an expression:
-
-1. **Widening**: when the type of the expression is a subtype of the ascribed type (). For example, `42 @ Int` is valid because `42` is a subtype of `Int`. Moreover, `42 @ Any` is valid because `Int` is a subtype of `Any`. This is called _widening_ and is always safe and valid.
-2. **Unconditional narrowing**: Narrowing is less safe. It is when the type of the expression is a supertype of the ascribed type. For example, `42 @! Float` is invalid because `Int` is not a supertype of `Float`. `let x: Int | Float = 42; x @! Int` on the other hand is valid, because `Int | Float` is a supertype of `Int`. This is called _narrowing_ and is not always safe and valid.
-In _Alpine_, narrowing can be done using the `@!` operator. If the ascribed type is not a subtype of the type of the expression, the interpreter should raise a `Panic`.
-3. **Safe narrowing**: Instead of forcing such a narrowing, one can use the `@?` operator. It returns either a `#none` or a `#some(T)` depending on whether the narrowing is valid or not.
-
-For example:
-  ```swift
-  let x = 42 @ Any
-  let y = x @? Int
-  ```
-  `y` will evaluate to `#some(42)`. If the ascribed type is not a subtype of the type of the expression, the result is `#none`, e.g.
-  ```swift
-  let x = 42 @ Any
-  let y = x @? Float
-  ```
-  `y` will evaluate to `#none`.
-
-Implement now the function `visitAscribedExpression` in the `Interpreter` class:
-
-* In case of a widening, return the value of the expression
-* In case of an unconditional narrowing, check if the ascribed type is a subtype of the type of the expression. If it is, return the value of the expression. Otherwise, raise a `Panic`.
-* In case of a safe narrowing, return `#some(value)` if the ascribed type is a subtype of the type of the expression, and `#none` otherwise.
-
-Note that `#none` and `#some` are built-in records, and are defined in the `Value` object, in the `evaluation/Value.scala` file.
-
-### Step 5: Functions
-
-A function is a block of code that can be called. In _Alpine_, a function is defined using the `fun` keyword. For example, the following code defines a function `add` that takes two arguments `x` and `y` and returns their sum:
-
-```swift
-fun add(_ x: Int, _ y: Int) -> Int {
-  x + y
-}
+```grammar
+PrefixExpression -> InfixOp | InfixOp CompoundExpression | CompoundExpression
 ```
 
-Note that by construction of our interpreter, it will never visit a `Function` node (since we are interpreting directly the entrypoint.)
+A prefix expression checks if the next token is an operator. **If there is no space between the operator and the next token** (see `noWhitespaceBeforeNextToken`), parse the prefix operator and the compound expression that follows. It returns a `PrefixApplication` AST node. The fact we have to check for white space presence shows us that this gammar is not a context-free grammar.
 
-However, we may encounter the definition of functions with a `Let`/`Biding` node:
+If there is a whitespace, then it returns directly the operator (recall: it's an `Identifier`.)
 
-```swift
-let add = (_ x: Int, _ y: Int) -> Int {
-  x + y
-}
-```
+In the case where it is not an operator, it will parse the compound expression (so call the `compoundExpression()` function.)
 
-Such functions are called lambda functions (or anonymous functions). The interpreter should evaluate lambda functions when it visits a `Let` node. Moreover, these lambda functions can be defined inside a function in itself and has capture semantics. For example:
+##### `ascribedExpression()`
 
-```swift
-fun adder(_ x: Int, _ y: Int) -> Int {
-  let add = (_ z: Int) -> Int {
-    x + z // x is captured from the outer scope
-  } {
-    add(y)
-  }
-}
-let main = print(adder(3, 4))
-```
+An ascribed expression is a prefix expression followed by an optional type cast. It returns a `AscribedExpression` AST node if there is a type cast, otherwise just a prefix expression. You can use the `typecast` function.
 
-has the same behavior as the previous `add` function.
+Example:
 
-Here, the lambda captures the `x` variable from the outer scope. This is what the lambda "captured".
+* `a @ Int`: `AscribedExpression(Identifier("a", …), Typecast.Widen, TypeIdentifier("Int", _), _)`
+* `1 @ Int`: `AscribedExpression(IntegerLiteral(1, …), Typecast.Widen, TypeIdentifier("Int", _), _)`
+* `1`: `IntegerLiteral(1, …)` (returned by the `prefixExpression` function)
 
-The `_` in the function definitions are optional argument names. They can be used to make the code more readable by giving names to the arguments for interface/documentation purposes, that are are different from the variable names used in the body.
+##### `infixExpression` and `expression()`
 
-For instance:
+As we saw in the lecture, parsing expressions requires care because of the ambiguity introduced by precedence.
 
-```swift
-fun scale(by f: Int) -> Int {
-  10 * f
-}
-let main = print(scale(by: 2))
-```
+Notice that infixEpression takes a precendence as input: you may use it this parameter to factor out the parsing of all possible infix expressions with different precedence levels.
 
-It lets the programer give more information about the argument to the caller, without having to use this name inside the function.
+You may take inspiration from the precedence climbing algorithm to parse infix expressions. See [the Wikipedia article](https://en.wikipedia.org/wiki/Operator-precedence_parser#Precedence_climbing_method) for more information.
 
-When the wildcard `_` is used, you can not specify the name of the argument when calling the function. For instance, the following code is invalid:
+##### Literals
 
-```swift
-fun scale(_ f: Int) -> Int {
-  10 * f
-}
-let main = print(scale(f: 2))
-```
+To get the text a token contain, you can use the `.site.text` method.
 
-This is the correct way to call the function:
+##### `labeled(…)`
 
-```swift
-fun scale(_ f: Int) -> Int {
-  10 * f
-}
-let main = print(scale(2))
-```
+A `Labeled[T]` is a value of type `T` (as in Scala) with an optional `String` denoting its label.
 
-#### Step 5.1: Applications
+In _Alpine_, a `Labeled[T]` can be:
 
-An application is the act of calling a function. In _Alpine_, we differentiate applications in three categories:
+* `<value>`
+* `<label>: <value>`
 
-1. Standard function call (`Application`): e.g. `add(1, 2)`
-2. Binary operator call (`InfixApplication`): e.g. `1 + 2` which is equivalent to `iadd(1, 2)` (`iadd` is a built-in function)
-3. Unary operator call (`PrefixApplication`): e.g. `-1` which is equivalent to `ineg(1)` (`ineg` is a built-in function)
+_Hint_: you may find the `backup` and `restore` methods useful.
 
-You should evaluate first:
+_Note_: as stated in the grammar, a `<label>` can be an `<identifier>` or a `<keyword>`.
 
-* the function i.e., retrieve the function node from the context using the identifier
-* the arguments i.e., evaluate/visit the arguments (call by value semantic)
+_Examples_:
 
-Then, you should call the function on the arguments: you should use the `call` helper function.
+* `label: 1` → `Labeled(Some("label"), IntegerLiteral(1, …))`
+* `match: 1` → `Labeled(Some("match"), IntegerLiteral(1, …))`
+* `1` → `Labeled(None, IntegerLiteral(1, …))`
 
-#### Step 5.2: `call` function
+##### `inParentheses`, `inBraces`, `inAngles`
 
-Let's implement the `call` function.
+Complete the three different functions that parses an `element` delimited by parentheses (`(<element>)`), braces (`{<element>}`) and angles (`<>`)
 
-The implementation for all the built-in functions is provided, you can take inspiration from it. 
+##### `parenthesizedLabeledList(value: () => T): List[Labeled[T]]`
 
-Your task is to implement the function for the following cases:
+This function parses a list of labeled values delimited by parentheses. The list can be empty.
 
-* the function is not a built-in function and is not a lambda function
-* the function is not a built-in function but is a lambda function
-
-In each case, the `context` needs to be updated with the new bindings.
-
-<div class="warn">
-
-In lambdas, do not forget about the captures!
-
-</div>
-
-### Step 6: Let bindings
-
-A let binding is how to define a new variable with a new block. We are already familiar with the top-level let binding (`Binding` node) but let's see the `Let` node.
-
-In _Alpine_, a let binding is written as:
+For example, the above function is responsible to parse the following code:
 
 ```swift
-let x = 1 {
-  x + 1
-}
+(1, 2, label: 3)
 ```
 
-and here evaluates to `2`.
+_Hint_: `inParentheses`, `labeled` and `commaSeparatedList` are useful to implement this function.
 
-In other words, a `Let` is a `Binding` with a body that is executed with the new binding in the context.
+##### Records
 
-To do so, implement the function `visitLet` in the `Interpreter` class, that should:
+In this part, we will break down the record parsing. You should implement `recordExpression()`, `recordExpressionFields()` and `record(fields: () => List[Field], make: (String, List[Field], …) => T)`
 
-* evaluate/visit the `definition` of the `Binding`.
-* evaluate/visit the body of the `Let` with the new `Binding`.
+* The `record` function is responsible for parsing a record. It returns a `T` AST node. In the case of parsing record expressions, `T` is `ast.Record`. It is general and will be used as well for `recordType`s
 
-Note that the `Let` has call-by value semantics (i.e. the definition of the `Binding` is evaluated before evaluating the body of the `Let` and every subsequent reference to that new variable makes reference to the value to which the definition was evaluated.)
+* `recordExpression()` is a function used to parse a record expression. It returns a `Record` AST node.
 
-### Step 7: Pattern matching
-
-Pattern matching is a way to match a value against a pattern. In _Alpine_, a pattern matching looks like:
-
-```swift
-match <scrutinee> {
-  case <pattern> then <expression>
-  // …
-}
-```
-
-For instance,
-
-```swift
-match #person(age: 1) {
-  case #person(age: 1) then 1
-  case #person(age: 2) then 2
-  case _ then -1
-}
-```
-
-`#person(age: 1)` is the scrutinee and `#person(age: 1)`, `#person(age: 2)` and `_` are the patterns. Here, the expression evaluates to `1`.
-
-A pattern can be recursively constructed with the following elements:
-
-* A wildcard (`_`): matches any value
-* An exact value: matches the exact value
-* A record: matches a record with the same name and the same fields
-
-Moreover, bindings can be defined in the patterns. For instance:
-
-```swift
-match someValue {
-  case let p: #person(age: Int) then p.age >= 2
-  case _ then false
-}
-```
-
-In this case, the first expression of the first case is evaluated with a new binding: `p` is bound to the record `#person` of type `#person(age: Int)` (i.e., here, the scrutinee value).
-
-For instance, if `someValue` was `#person(age: 1)`, the first case would be executed and the expression would evaluate to `false` (because `1 >= 2` evaluates to false because `p.age = 1`.) If `someValue` was not a `#person` record, the second case would be executed and the expression would evaluate to `false`.
-
-Similarly, you can have `let` inside records too:
-
-```swift
-match someValue {
-  case #person(age: let n) then n >= 2
-  case _ then false
-}
-```
-
-and this has the same behavior as the previous example.
-
-Similar to the `Let` node, the `Match` node has call-by value semantics (i.e., the scrutinee is first evaluated to a value before executing the `match`).
-
-If the scrutinee does not match any pattern, the interpreter should raise a `Panic`.
-
-If the scrutinee matches multiple patterns, the first pattern that matches is chosen.
-
-Note as well that patterns can contain expressions. For instance, the following code is valid:
-
-```swift
-match #person(age: 2) {
-  case #person(age: 1) then 1
-  case #person(age: 1 + 1) then 2
-  case _ then -1
-}
-```
-
-and evaluates to `2`.
-
-So expressions in patterns should be evaluated before matching.
-
-#### Step 7.1: Visiting the `Match` node
-
-To implement the pattern matching, implement the helper function `visitMatch` in the `Interpreter` class, that should:
-
-* evaluate/visit the `scrutinee`
-* evaluate/visit the `cases` and return the value of the first case that matches the scrutinee
-
-You can use the `matches` function to check if a pattern matches a value. `matches` returns either `None` if the pattern does not match the value, or `Some(bindings)` if the pattern matches the value. The `bindings` is a map from the variable identifiers to the values they are bound to, and of type `Frame` (that is a `Map[symbols.Name, Value]`.)
-
-These bindings should be used to evaluate the case return expression.
-
-#### Step 6.2: Implementing `matches`
-
-`matches` makes a call to either:
-
-* `matchesWildcard`
-* `matchesValue`
-* `matchesRecord`
-* `matchesBinding`
-
-depending on the type of the pattern.
-
-* `matchesWildcard` matches any value and returns an empty `Frame`
-* `matchesValue` matches the exact value and returns an empty `Frame`
-* `matchesBinding` matches a binding and returns a `Frame` with the bindings if any. Be careful, the type of the binding must match as well.
-* `matchesRecord` matches a record with the same name and the same fields, and returns a `Frame` with the bindings if any. Note that the fields of the record can be expressions and that the patterns for the fields should be recursively matched. Be careful, the record type must match as well (you can use `Pattern.record#dynamicType` and `structurallyMatches`.)
-
-### Step 8: Lambdas
-
-We have seen lambda functions. However, we have not implemented the `visitLambda` method.
-
-Implement the function `visitLambda` in the `Interpreter` class, that should:
-
-* return a `Lambda` value
-* update the `context` with the new bindings and specify a new `Frame` for the captures.
+* The `recordExpressionFields()` function is responsible for parsing the fields of a record expression. It returns a `List[Labeled[Expression]]` AST node.
 
 <div class="hint">
 
-As a reminder, the captures are the variables that are used in the lambda but are not defined in the lambda (i.e., whose values comes from the environment outside of the lambda). For instance, in the following code:
-
-```swift
-let x = 1
-let add = (_ y: Int) -> Int {
-  x + y
-}
-```
-
-`x` is a capture of the `add` lambda.
-
-Check the `Context.flattened`method while implementing the captures.
+Do forget that you can reuse parser functions you already implemented so far.
 
 </div>
 
-### Grammar
+It should parse the following sub grammar:
 
- In this section, we give a list of built-in functions and a summary of the tree types you will work with.
+```
+Record -> '#' Identifier  ['(' LabeledExpressionList ')']
+```
 
-#### Built-in functions
+<div class="note">
 
-Here is a list of all the built-in functions, provided for reference:
+An identifier with a `#` prefix is a special token called `Label`.
 
-* `equality(a: Any, b: Any) -> Bool`: returns `true` if `a` and `b` are equal, `false` otherwise (`a == b`)
-* `inequality(a: Any, b: Any) -> Bool`: returns `true` if `a` and `b` are not equal, `false` otherwise (`a != b`)
-* `lnot(a: Bool) -> Bool`: returns `true` if `a` is `false`, `false` otherwise (`!a`)
-* `land(a: Bool, b: Bool) -> Bool`: returns `true` if `a` and `b` are `true`, `false` otherwise (`a && b`)
-* `lor(a: Bool, b: Bool) -> Bool`: returns `true` if `a` or `b` is `true`, `false` otherwise (`a || b`)
-* `ineg(a: Int) -> Int`: returns the negation of `a` (`-a`)
-* `iadd(a: Int, b: Int) -> Int`: returns the sum of `a` and `b` (`a + b`)
-* `isub(a: Int, b: Int) -> Int`: returns the difference of `a` and `b` (`a - b`)
-* `imul(a: Int, b: Int) -> Int`: returns the product of `a` and `b` (`a * b`)
-* `idiv(a: Int, b: Int) -> Int`: returns the division of `a` by `b` (`a / b`)
-* `irem(a: Int, b: Int) -> Int`: returns the remainder of `a` by `b` (`a % b`, commonly known as modulo.)
-* `ishl(a: Int, b: Int) -> Int`: returns the result of the left shift of `a` by `b` (`a << b`)
-* `ishr(a: Int, b: Int) -> Int`: returns the result of the right shift of `a` by `b` (`a >> b`)
-* `ilt(a: Int, b: Int) -> Bool`: returns `true` if `a` is strictly less than `b`, `false` otherwise
-* `ile(a: Int, b: Int) -> Bool`: returns `true` if `a` is less than or equal to `b`, `false` otherwise
-* `igt(a: Int, b: Int) -> Bool`: returns `true` if `a` is strictly greater than `b`, `false` otherwise
-* `ige(a: Int, b: Int) -> Bool`: returns `true` if `a` is greater than or equal to `b`, `false` otherwise
-* `iinv(a: Int) -> Int`: returns the bitwise inversion of `a` (`~a`)
-* `iand(a: Int, b: Int) -> Int`: returns the result of the bitwise and of `a` and `b` (`a & b`)
-* `ior(a: Int, b: Int) -> Int`: returns the result of the bitwise or of `a` and `b` (`a | b`)
-* `ixor(a: Int, b: Int) -> Int`: returns the result of the bitwise xor of `a` and `b` (`a ^ b`)
-* `fneg(a: Float) -> Float`: returns the negation of `a` (`-a`)
-* `fadd(a: Float, b: Float) -> Float`: returns the sum of `a` and `b` (`a + b`)
-* `fsub(a: Float, b: Float) -> Float`: returns the difference of `a` and `b` (`a - b`)
-* `fmul(a: Float, b: Float) -> Float`: returns the product of `a` and `b` (`a * b`)
-* `fdiv(a: Float, b: Float) -> Float`: returns the division of `a` by `b` (`a / b`)
-* `flt(a: Float, b: Float) -> Bool`: returns `true` if `a` is strictly less than `b`, `false` otherwise (`a < b`)
-* `fle(a: Float, b: Float) -> Bool`: returns `true` if `a` is less than or equal to `b`, `false` otherwise (`a <= b`)
-* `fgt(a: Float, b: Float) -> Bool`: returns `true` if `a` is strictly greater than `b`, `false` otherwise (`a > b`)
-* `fge(a: Float, b: Float) -> Bool`: returns `true` if `a` is greater than or equal to `b`, `false` otherwise (`a >= b`)
+Note as well that `Field` in `record(…)` is a generic type! It should be of subtype `Labeled[Tree]` and `Labeled` is covariant. It will come handy when we will parse record types.
 
-#### Tree types and summary
+</div>
 
-Here is a summary of the tree types you will work with, defined in the `ast` package.
+##### Conditionals `conditional()`
 
-* `ParenthesizedExpression(inner: Expression, …)`: `(<expression>)`, evaluates to `<expression>`.
-  * The inner expression is `inner`.
-  * Example: `((1 + 2))` → `((3))` → `(3)` → `3`
-* `Record(identifier: String, fields: List[Labeled[Expression]], …)`: 
-  * `<identifier>`, evaluates to a singleton record with the given name. (`fields = Nil`)
-  * `<identifier>(<field1>: <expression1>, …)`, evaluates to a record with the given fields and values.
-  * `<identifier>` starts with `#`.
-  * Example: `#pair(x: 1, y: 2)`, `#singleton`, `#none`
-* `Conditional(condition: Expression, successCase: Expression, failureCase: Expression, …)`: 
-  * `if <condition> then <successCase> else <failureCase>`, evaluates to `<successCase>` if `<condition>` evaluates to `true`, `<failureCase>` otherwise.
-  * Example: `if true then 1 else 2` → `1`, `if false then 1 else 2` → `2`
-* `AscribedExpression(inner: Expression, operation: Typecast, ascription: Type, …)`:
-  * `inner` is the expression to be typecasted.
-  * `@` means `operation = Typecast.Widen`
-    * Returns the value of the expression. The check is left to the type-checker that is provided.
-    * Examples: `1 @ Int`, `1 @ Any`
-  * `@!` means `operation = Typecast.NarrowUnconditionally`
-    * Returns the value of the expression if the ascribed type is a subtype of the type of the expression. Otherwise, raises a `Panic`.
-    * Examples: `1 @! Float`
-  * `@?` means `operation = Typecast.Narrow`
-    * Returns `#some(value)` if the ascribed type is a subtype of the type of the expression, and `#none` otherwise.
-    * Examples: `1 @? Int`, `1 @? Float`
-* `Application(function: Expression, arguments: List[Labeled[Expression]], …)`: `<function>(<arguments>)`
-  * `function` is the function to be called.
-  * `arguments` is the list of arguments.
-  * Example: `iadd(1, 2)`
-* `PrefixApplication(function: Expression, argument: Expression, …)`: `<operator> <expression>`
-  * `function` is the function to be called.
-  * `argument` is the argument.
-  * Example: `-1`
-  * The `function` is resolved when parsing from `<operator>`.
-* `InfixApplication(function: Expression, lhs: Expression, rhs: Expression)`: `<lhs> <operator> <rhs>`
-  * `function` is the function to be called.
-  * `lhs and `rhs are the arguments.
-  * Example: `1 + 2`
-  * The `function` is resolved when parsing from `<operator>`.
-* `Binding(identifier: String, ascription: Option[Type], initializer: Option[Expression], …)`:
-  * `identifier` is the name of the variable.
-  * `ascription` is the type of the variable, if given.
-  * `initializer` is the initial value of the variable, if given.
-  * Possible syntaxes:
-    * `let <identifier> = <expression>`
-    * `let <identifier>: <ascription>`
-    * `let <identifier>: <ascription> = <expression>`
-* `Let(binding: Binding, body: Expression, …)`: `<binding> { <expression> }`
-  * `binding` is the binding to be defined.
-  * `body` is the body of the let.
-  * Example: `let x = 1 { x + 1 }`
-* `Match(scrutinee: Expression, cases: List[Match.Case], …)`: `match <scrutinee> { <cases> }`
-  * `scrutinee` is the value to be matched.
-  * `cases` is the list of cases.
-  * Example: `match #person(age: 1) { case #person(age: 1) then 1 case _ then -1 }`
-* `Lambda(inputs: List[Parameter], output: Option[Type], body: Expression; …)`: `(<parameters>) -> <output> { <body> }`
-  * `inputs` is the list of input parameters.
-  * `output` is the output type, if given.
-  * `body` is the body of the lambda.
-  * Example: `(_ x: Int, _ y: Int) -> Int { x + y }`
+```if <expression> then <expression> else <expression>```
+
+which correspond to:
+
+```IfExpression -> 'if' Expression 'then' Expression 'else' Expression``` in the grammar.
+
+The `if` function has necessarily to have an `else` branch. The `else` branch is mandatory in _Alpine_.
+
+##### `tpe()`
+
+The `tpe` function is responsible for parsing a type. It returns a `Type` AST node. For the fact, `tpe` is called `tpe` because `type` is a reserved keyword in Scala.
+
+`tpe` should parse the `Type` given the grammar above. You can call the `primaryType` function to parse a `PrimaryType`.
+
+##### `recordType()` and `recordTypeFields()`
+
+Now, implement the `recordType` and `recordTypeFields` functions. They are responsible for parsing a record type and its fields. They should return a `RecordType` and a `List[Labeled[Type]]` respectively.
+
+In the same manner as `recordExpression` and `recordExpressionFields`, `recordType` should call the `record` function.
+
+##### `arrowOrParenthesizedType()`
+
+When encountering a `(` token, it can be either a function's type or a parenthesized type (a parenthesized type is a type between parentheses). This function should parse the two cases and return the corresponding AST node.
+
+It should parse both cases:
+
+* Parenthesized type (`ParenthesizedType`):
+
+```
+(<type>)
+```
+
+and
+
+* Arrow/Lambda type:
+
+```
+(<type1>, <type2>, …, <typeN>) -> <type>
+```
+
+##### Bindings & let
+
+###### `binding()`
+
+A binding is a top-level declaration that binds an identifier to a value. It has the following form:
+
+```
+Binding -> 'let' Identifier [':' Type] ['=' Expression]
+```
+
+where `[':' Type]` and `['=' Expression]` is not always optional: the argument `initializerIsExpected` is `true` if the initializer is expected (i.e. not optional) and `false` otherwise (i.e. optional): it may come handy for later! Implement the `binding()` function that parses a binding.
+
+##### Functions: `function()`, `valueParameterList()`, `parameter()`
+
+##### `parameter()`
+
+A parameter is of the form:
+
+```
+<identifier> <identifier> [: <type>] // labeled
+'_' <identifier> [: <type>] // unlabeled
+<keyword> <identifier> [: <type>] // labeled by keyword
+```
+
+In the first case, the first element is the label of the parameter (can be an identifier, `_` or a keyword) and the second element is the name of the argument. When labeled by a keyword, the keyword is the label. When labeled, the parameter's name (i.e. its identifier inside the function) is the second identifier. When unlabeled (i.e. `_` is the label), the parameter's name is the first and only identifier.
+
+Implement the `parameter` function that parses a parameter. It returns a `Parameter` AST node.
+
+_Note_: here the label is before the identifier without any separator token. It is not the case for `labeled` where the label is separated by a colon with the identifier.
+
+* Examples: 
+  * `_ x: Int`: `Parameter(None, "x", Some(TypeIdentifier("Int", _)), _)`
+  * `label x: Int`: `Parameter(Some("label"), "x", Some(TypeIdentifier("Int", _)), _)`
+  * `label x`: `Parameter(Some("label"), "x", None, _)`
+
+###### `valueParameterList()`
+
+A value parameter list is a list of parameters. It has the following form:
+
+```
+( <parameter1>, … )
+```
+
+Implement the `valueParameterList` function that parses a value parameter list. It returns a `List[Parameter]` AST node.
+
+_Hint_: you may find the `commaSeparatedList` function and `parameter()` useful.
+
+##### `function()`
+
+A function is of the form:
+
+```
+fun <identifier> (<type parameters>) [-> <type>] { <expression> }
+```
+
+where `[-> <type>]` is optional. Implement the `function` function that parses a function. It returns a `Function` AST node. 
+
+### `lambdaOrParenthesizedExpression()`
+
+When encountering a `(` token, it can be either a lambda or a parenthesized expression. This function should parse the two cases and return the corresponding AST node.
+
+It should parse both cases:
+
+```
+(<expression>)
+```
+
+and
+
+```
+(<value parameter list>) -> [type] { <expression> }
+```
+
+where `[type]` is optional.
+
+_Hint_: `backup` and `restore` may come handy.
+
+##### Match expressions
+
+A match expression is a conditional expression that matches a value against a set of patterns. It has the following form:
+
+```swift
+match <expression> {
+  case <pattern> then <expression>
+}
+```
+
+Let's decompose this pattern into smaller parts as we did for the other elements of the language.
+
+###### `mtch()`
+
+The `mtch` function is responsible for parsing a match expression. It returns a `Match` AST node. It expects a `match` token, an expression and then calls `matchBody` to parse the body of the match expression.
+
+###### `pattern()` with `wildcard()`, `recordPattern()`, `bindingPattern()` and `valuePattern()`
+
+The four functions are responsible for parsing a pattern. They return a `Pattern` AST node.
+
+* `wildcard` should parse the `_` token.
+* `valuePattern` should parse an `expression` and return a `ValuePattern` AST node.
+* `bindingPattern` should parse a `binding()` without an initializer!
+* `recordPattern` should call the `record` function and return a `RecordPattern` AST node. Don't forget that you've made a function to parse records! However, it is required to fill the `recordPatternFields()` function.
