@@ -7,6 +7,7 @@ import alpine.util.FatalError
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.SeqView.Reverse
+import alpine.symbols.Type.option
 
 class Parser(val source: SourceFile):
 
@@ -144,23 +145,41 @@ class Parser(val source: SourceFile):
       lhs := the result of applying op with operands lhs and rhs
   return lhs */
   private[parsing] def infixExpressionHelper(lhsGiven : Expression, precedence: Int = ast.OperatorPrecedence.min): Expression =
-    val backup = snapshot()
     var lhs = lhsGiven // mutable left hand side
-    var lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
-
-    while ???/*lookAhead.precedence >= precedence*/ do
-      val op = lookAhead
-      var rhs = expression() // not sure ??
-      val backup = snapshot()
-      lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
-
-      while ???/*lookAhead.precedence > precedence*/ do
-        val newPrecedence = ??? /*op.precedence + (if lookAhead.precedence > op.precedence then 1 else 0)*/
-        rhs = infixExpressionHelper(rhs,newPrecedence)
-        val backup = snapshot()
-        lookAhead = operatorIdentifier()._1.getOrElse({restore(backup);lhs})
-      lhs = ???//BinaryOperation(op, lhs, rhs, op.site.extendedTo(lastBoundary))
-    lhs
+    var operatorId = operatorIdentifier() // get the operator identifier
+    var lookAhead = operatorId._1
+    lookAhead match
+      case None => throw FatalError("expected operator", emptySiteAtLastBoundary)
+      case Some(o) =>
+        var pre = o.precedence
+        while pre >= precedence do
+          val op = lookAhead
+          val opSite = operatorId._2
+          var rhs = expression() // not sure ??
+          val backup = snapshot()
+          operatorId = operatorIdentifier() // get the operator identifier
+          lookAhead = operatorId._1
+          lookAhead match
+            case None => 
+              restore(backup)
+              lhs
+            case Some(o) =>
+              pre = o.precedence
+              var stop = false
+              while pre > precedence && !stop do
+                val newPrecedence = op.get.precedence + (if o.precedence > op.get.precedence then 1 else 0)
+                rhs = infixExpressionHelper(rhs,newPrecedence)
+                val backup = snapshot()
+                operatorId = operatorIdentifier() // get the operator identifier
+                lookAhead = operatorId._1
+                lookAhead match
+                  case None => 
+                    restore(backup)
+                    stop = true
+                  case Some(o) =>
+                    pre = o.precedence
+              lhs = InfixApplication(Identifier(op.get.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+        lhs
 
   /** Parses and returns an expression with an optional ascription. */
   private[parsing] def ascribed(): Expression =
