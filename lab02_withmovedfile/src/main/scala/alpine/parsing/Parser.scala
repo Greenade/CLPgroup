@@ -154,7 +154,11 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a type declaration. */
   private[parsing] def typeDeclaration(): TypeDeclaration =
-    ???
+    val t = expect(K.Type)
+    val id = expect(K.Identifier)
+    expect(K.Eq)
+    val body = tpe()
+    TypeDeclaration(id.site.text.toString,Nil,body,t.site.extendedTo(lastBoundary))
 
   /** Parses and returns a list of parameter declarations in angle brackets. */
   //--- This is intentionally left in the handout /*+++ +++*/
@@ -558,7 +562,6 @@ class Parser(val source: SourceFile):
   /** Parses and returns a wildcard pattern. */
   def wildcard(): Wildcard =
     val s = expect(K.Underscore) // if it's an underscore, return a Wildcard with the site of the token
-    take() // consume the token
     Wildcard(s.site) // return the Wildcard
 
   /** Parses and returns a record pattern. */
