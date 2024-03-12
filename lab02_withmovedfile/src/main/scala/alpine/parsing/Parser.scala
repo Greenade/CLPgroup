@@ -496,7 +496,7 @@ class Parser(val source: SourceFile):
   /** Parses and returns a type-level expression. */
   private[parsing] def tpe(): Type =
     val l = tpeListHelper()
-    if l.length == 1 then l.head else Sum(l, l.last.site)
+    if l.length == 1 then l.head else Sum(l, l.head.site.extendedTo(lastBoundary))
 
   private[parsing] def tpeListHelper(): List[Type] =
     val t1 = primaryType()
