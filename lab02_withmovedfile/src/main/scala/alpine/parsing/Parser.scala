@@ -69,24 +69,26 @@ class Parser(val source: SourceFile):
           case Some(Token(K.Eq, _)) =>
             take()
             val initializer = Some(expression())
-            Binding(identifier.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+            Binding(identifier.site.text.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
 
           case _ if initializerIsExpected =>
-            throw FatalError("expected initializer", emptySiteAtLastBoundary)
+            report(ExpectedTokenError(K.Eq, emptySiteAtLastBoundary))
+            Binding(identifier.site.text.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
 
           case _ =>
-           Binding(identifier.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
+           Binding(identifier.site.text.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
 
       case Some(Token(K.Eq, _)) =>
         take()
         val initializer = Some(expression())
-        Binding(identifier.toString,None,initializer,identifier.site.extendedTo(lastBoundary))
+        Binding(identifier.site.text.toString,None,initializer,identifier.site.extendedTo(lastBoundary))
 
       case _ if initializerIsExpected =>
-        throw FatalError("expected initializer", emptySiteAtLastBoundary)
+        report(ExpectedTokenError(K.Eq, emptySiteAtLastBoundary))
+        Binding(identifier.site.text.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
       case _ =>
-        Binding(identifier.toString,None,None,identifier.site.extendedTo(lastBoundary))
+        Binding(identifier.site.text.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
 
   /** Parses and returns a function declaration. */
@@ -135,7 +137,7 @@ class Parser(val source: SourceFile):
         take()
         None
       case _ =>
-        throw FatalError("expected wildcard, identifier or keyword", emptySiteAtLastBoundary)
+        Some(missingName) // not sure, since that means we will have to use "_" as the label when no label is found
 
   /** Parses and returns a parameter declaration. */
   private[parsing] def parameter(): Declaration =
@@ -188,23 +190,25 @@ class Parser(val source: SourceFile):
     var operatorId = operatorIdentifier() // get the operator identifier
     var lookAhead = operatorId._1
     lookAhead match
-      case None => throw FatalError("expected operator", emptySiteAtLastBoundary)
+      case None => 
+        report(SyntaxError("expected operator", emptySiteAtLastBoundary))
+        lhs // maybe it's ErrorTree(lhs.site)
       case Some(o) =>
         var pre = o.precedence
         while pre >= precedence do
-          val op = lookAhead
+          val op = o
           val opSite = operatorId._2
           var rhs = ascribed()
           operatorId = operatorIdentifier() // get the operator identifier
           lookAhead = operatorId._1
           lookAhead match
             case None => 
-              InfixApplication(Identifier(op.get.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+              InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
             case Some(o) =>
               pre = o.precedence
               var stop = false
               while pre > precedence && !stop do
-                val newPrecedence = op.get.precedence + (if o.precedence > op.get.precedence then 1 else 0)
+                val newPrecedence = op.precedence + (if o.precedence > op.precedence then 1 else 0)
                 rhs = infixExpressionHelper(rhs,newPrecedence)
                 operatorId = operatorIdentifier() // get the operator identifier
                 lookAhead = operatorId._1
@@ -213,7 +217,7 @@ class Parser(val source: SourceFile):
                     stop = true
                   case Some(o) =>
                     pre = o.precedence
-              lhs = InfixApplication(Identifier(op.get.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+              lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
         lhs
 
   /** Parses and returns an expression with an optional ascription. */
@@ -266,8 +270,10 @@ class Parser(val source: SourceFile):
                 case i : Identifier =>
                   compoundExpression2(Selection(primaryExp, i, primaryExp.site.extendedTo(lastBoundary)))
                 case _ => 
+                  report(SyntaxError("expected identifier or integer", emptySiteAtLastBoundary))
                   throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
           case _ =>     
+            report(SyntaxError("expected identifier or integer", emptySiteAtLastBoundary))
             throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
               
       case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for application)
@@ -489,26 +495,18 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a type-level expression. */
   private[parsing] def tpe(): Type =
+    val l = tpeListHelper()
+    if l.length == 1 then l.head else Sum(l, l.last.site)
+
+  private[parsing] def tpeListHelper(): List[Type] =
+    val t1 = primaryType()
     peek match
-      case Some(Token(K.Identifier, _)) =>
-        var ty = primaryType()
-        peek match
-          case Some(Token(K.Operator, _)) =>
-            take()
-            var s2 = peek.get.site
-            var ty2 = primaryType()
-            peek match
-              case Some(Token(K.Operator, _)) =>
-                take()
-                var s3 = peek.get.site
-                var ty3 = primaryType()
-                Sum(List(ty,ty2,ty3),s3)
-              case _ => 
-                Sum(List(ty,ty2),s2)
-          case _ =>
-            ty
+      case Some(Token(K.Operator, _)) =>
+        take()
+        List(t1) ::: tpeListHelper()
       case _ =>
-        primaryType()
+        List(t1)
+
 
   /** Parses and returns a type-level primary exression. */
   private def primaryType(): Type =
