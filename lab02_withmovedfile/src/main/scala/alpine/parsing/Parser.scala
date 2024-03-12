@@ -120,7 +120,8 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a list of parameter declarations in parentheses. */
   private[parsing] def valueParameterList(): List[Parameter] =
-    commaSeparatedList(K.RParen.matches, () => parameter().asInstanceOf[Parameter])
+    inParentheses(() => commaSeparatedList(K.RParen.matches, parameter))
+      .collect({ case p: Parameter => p })
 
   private[parsing] def parameterLabelHelper(): Option[String] =
     peek match
