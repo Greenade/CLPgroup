@@ -353,8 +353,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns the fields of a term-level record expression. */
   private def recordExpressionFields(): List[Labeled[Expression]] =
-    val fields = parenthesizedLabeledList(() => labeled(expression))
-    fields.map((f) => f.asInstanceOf[Labeled[Expression]])
+    parenthesizedLabeledList(expression)
 
   /** Parses and returns a conditional expression. */
   private[parsing] def conditional(): Expression =
@@ -566,6 +565,8 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a record pattern. */
   private def recordPattern(): RecordPattern =
+    /*val r = record()
+    RecordPattern(r.name, r.fields, r.site)*/
     ???
 
   /** Parses and returns the fields of a record pattern. */
@@ -575,11 +576,12 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a binding pattern. */
   private def bindingPattern(): Binding =
-    ???
+    binding(false)
 
   /** Parses and returns a value pattern. */
   private def valuePattern(): ValuePattern =
-    ???
+    val e = expression()
+    ValuePattern(e, e.site)
 
   // --- Common trees ---------------------------------------------------------
 
