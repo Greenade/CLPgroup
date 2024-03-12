@@ -533,11 +533,11 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a type-level record expressions. */
   private[parsing] def recordType(): RecordType =
-    ???
+    record(() => recordTypeFields(), (n, f, p) => RecordType(n, f, p))
 
   /** Parses and returns the fields of a type-level record expression. */
   private def recordTypeFields(): List[Labeled[Type]] =
-    ???
+    parenthesizedLabeledList(tpe)
 
   /** Parses and returns a arrow or parenthesized type-level expression. */
   private[parsing] def arrowOrParenthesizedType(): Type =
