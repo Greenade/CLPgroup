@@ -348,7 +348,6 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a term-level record expression. */
   private def recordExpression(): Record =
-    val s = expect(K.Label)
     record(() => recordExpressionFields(), (n, f, p) => Record(n, f, p))
 
   /** Parses and returns the fields of a term-level record expression. */
@@ -565,14 +564,11 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a record pattern. */
   private def recordPattern(): RecordPattern =
-    /*val r = record()
-    RecordPattern(r.name, r.fields, r.site)*/
-    ???
+    record(() => recordPatternFields(), (n, f, p) => RecordPattern(n, f, p))
 
   /** Parses and returns the fields of a record pattern. */
   private def recordPatternFields(): List[Labeled[Pattern]] =
-    ???
-
+    parenthesizedLabeledList(pattern)
 
   /** Parses and returns a binding pattern. */
   private def bindingPattern(): Binding =
@@ -601,7 +597,15 @@ class Parser(val source: SourceFile):
       fields: () => List[Field],
       make: (String, List[Field], SourceSpan) => T
   ): T =
-    ???
+    expect(K.Label)
+    val id = expect(K.Identifier)
+    peek match
+      case Some(Token(K.LParen, _)) =>
+        val fs = fields()
+        make(id.site.text.toString, fs, id.site.extendedTo(lastBoundary))
+      case _ =>
+        make(id.site.text.toString, Nil, id.site.extendedTo(lastBoundary))
+
   /** Parses and returns a parenthesized list of labeled value.
    *
    *  See also [[this.labeledList]].
