@@ -616,14 +616,14 @@ class Parser(val source: SourceFile):
       fields: () => List[Field],
       make: (String, List[Field], SourceSpan) => T
   ): T =
-    expect(K.Label)
-    val id = expect(K.Identifier)
+    val label = expect(K.Label)
+    //val id = identifier()
     peek match
       case Some(Token(K.LParen, _)) =>
         val fs = fields()
-        make(id.site.text.toString, fs, id.site.extendedTo(lastBoundary))
+        make(label.site.text.toString, fs, label.site.extendedTo(lastBoundary))
       case _ =>
-        make(id.site.text.toString, Nil, id.site.extendedTo(lastBoundary))
+        make(label.site.text.toString, Nil, label.site.extendedTo(lastBoundary))
 
   /** Parses and returns a parenthesized list of labeled value.
    *
