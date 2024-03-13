@@ -97,9 +97,7 @@ class Parser(val source: SourceFile):
   private[parsing] def function(): Function =
     val funToken = expect(K.Fun)
     val funId = functionIdentifier()
-    expect(K.LParen)
     val parameterList = valueParameterList()
-    expect(K.RParen)
 
     val retType = peek match
       case Some(Token(K.Arrow, _)) =>
