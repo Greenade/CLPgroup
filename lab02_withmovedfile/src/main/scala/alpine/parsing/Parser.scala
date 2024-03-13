@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.SeqView.Reverse
 import alpine.symbols.Type.option
+import alpine.ast.Tree.walkRoots
 import scala.compiletime.ops.boolean
 
 class Parser(val source: SourceFile):
@@ -578,6 +579,7 @@ class Parser(val source: SourceFile):
   /** Parses and returns a wildcard pattern. */
   def wildcard(): Wildcard =
     val s = expect(K.Underscore) // if it's an underscore, return a Wildcard with the site of the token
+    take() // consume the token
     Wildcard(s.site) // return the Wildcard
 
   /** Parses and returns a record pattern. */
@@ -587,9 +589,11 @@ class Parser(val source: SourceFile):
   /** Parses and returns the fields of a record pattern. */
   private def recordPatternFields(): List[Labeled[Pattern]] =
     parenthesizedLabeledList(pattern)
+    parenthesizedLabeledList(pattern)
 
   /** Parses and returns a binding pattern. */
   private def bindingPattern(): Binding =
+    binding(false)
     binding(false)
 
   /** Parses and returns a value pattern. */
