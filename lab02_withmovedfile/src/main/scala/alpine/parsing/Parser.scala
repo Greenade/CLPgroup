@@ -8,6 +8,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.collection.SeqView.Reverse
 import alpine.symbols.Type.option
+import scala.compiletime.ops.boolean
 
 class Parser(val source: SourceFile):
 
@@ -541,12 +542,24 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a arrow or parenthesized type-level expression. */
   private[parsing] def arrowOrParenthesizedType(): Type =
+    val backup = snapshot()
+    val arrow = arrowFindings(backup)
+    if arrow then
+      ???
+    else
+      ParenthesizedType(inParentheses(tpe), emptySiteAtLastBoundary)
+  
+  private[parsing] def arrowFindings(backup: Parser.Snapshot): Boolean =
     peek match
-      case Some(Token(K.LParen, _)) =>
-        ParenthesizedType(inParentheses(tpe), emptySiteAtLastBoundary)
+      case Some(Token(K.Arrow, _)) =>
+        restore(backup)
+        true
+      case Some(value) =>
+        take()
+        arrowFindings(backup)
       case _ =>
-        ??? // Arrow()
-    
+        restore(backup)
+        false
 
   // --- Patterns -------------------------------------------------------------
 
