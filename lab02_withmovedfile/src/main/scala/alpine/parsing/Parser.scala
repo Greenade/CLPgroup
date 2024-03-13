@@ -529,7 +529,7 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a list of type arguments. */
   private def typeArguments(): List[Labeled[Type]] =
-    ???
+    List(Labeled(None, tpe(), emptySiteAtLastBoundary))
 
   /** Parses and returns a type-level record expressions. */
   private[parsing] def recordType(): RecordType =
@@ -541,7 +541,12 @@ class Parser(val source: SourceFile):
 
   /** Parses and returns a arrow or parenthesized type-level expression. */
   private[parsing] def arrowOrParenthesizedType(): Type =
-    ???
+    peek match
+      case Some(Token(K.LParen, _)) =>
+        ParenthesizedType(inParentheses(tpe), emptySiteAtLastBoundary)
+      case _ =>
+        ??? // Arrow()
+    
 
   // --- Patterns -------------------------------------------------------------
 
