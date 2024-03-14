@@ -191,7 +191,9 @@ class Parser(val source: SourceFile):
   return lhs */
   private[parsing] def infixExpressionHelper(lhsGiven : Expression, precedence: Int = ast.OperatorPrecedence.min): Expression =
     var lhs = lhsGiven // mutable left hand side
-    var operatorId = operatorIdentifier() // get the operator identifier
+    var operatorId = peek match 
+      case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+      case _ => (None,emptySiteAtLastBoundary)
     var lookAhead = operatorId._1
     lookAhead match
       case None => 
@@ -199,22 +201,28 @@ class Parser(val source: SourceFile):
         lhs // maybe it's ErrorTree(lhs.site)
       case Some(o) =>
         var pre = o.precedence
-        while pre >= precedence do
+        var stop1 = false
+        while !stop1 && pre >= precedence do
           val op = o
           val opSite = operatorId._2
           var rhs = ascribed()
-          operatorId = operatorIdentifier() // get the operator identifier
+          operatorId = peek match 
+            case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+            case _ => (None,emptySiteAtLastBoundary)
           lookAhead = operatorId._1
           lookAhead match
             case None => 
-              InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+              stop1 = true
+              lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
             case Some(o) =>
               pre = o.precedence
               var stop = false
-              while pre > precedence && !stop do
+              while !stop && pre > precedence do
                 val newPrecedence = op.precedence + (if o.precedence > op.precedence then 1 else 0)
                 rhs = infixExpressionHelper(rhs,newPrecedence)
-                operatorId = operatorIdentifier() // get the operator identifier
+                operatorId = peek match 
+                  case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+                  case _ => (None,emptySiteAtLastBoundary)
                 lookAhead = operatorId._1
                 lookAhead match
                   case None => 
