@@ -415,8 +415,19 @@ class Parser(val source: SourceFile):
   /** Parses and returns a lambda or parenthesized term-level expression. */
   private def lambdaOrParenthesizedExpression(): Expression =
     val backup = snapshot()
+    val start = take(K.LParen)
     if lambdafinding(backup) then
-      ???
+      val l = valueParameterList()
+      val ty = peek match
+        case Some(Token(K.Arrow, _)) =>
+          take()
+          Some(tpe())
+        case _ =>
+          None
+      expect(K.LBrace)
+      val body = expression()
+      expect(K.RBrace)
+      Lambda(l, ty, body, start.get.site.extendedTo(lastBoundary))
     else
       ParenthesizedExpression(inParentheses(expression), emptySiteAtLastBoundary)
 
@@ -431,7 +442,6 @@ class Parser(val source: SourceFile):
       case _ =>
         restore(backup)
         false
-    
 
   /** Parses and returns an operator. */
   private def operator(): Expression =
