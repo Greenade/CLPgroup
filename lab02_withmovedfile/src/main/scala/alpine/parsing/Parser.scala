@@ -289,8 +289,7 @@ class Parser(val source: SourceFile):
             throw FatalError("expected identifier or integer", emptySiteAtLastBoundary)
               
       case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for application)
-        take()
-        val arguments = parenthesizedLabeledList(() => expression())
+        val arguments = parenthesizedLabeledList(expression)
         compoundExpression2(Application(primaryExp, arguments, primaryExp.site.extendedTo(lastBoundary)))
       case _ => primaryExp
 
