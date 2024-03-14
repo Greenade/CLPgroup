@@ -544,7 +544,9 @@ class Parser(val source: SourceFile):
     val backup = snapshot()
     val arrow = arrowFindings(backup)
     if arrow then
-      ???
+      val l = parenthesizedLabeledList(tpe)
+      take(K.Arrow)
+      Arrow(l, tpe(), l.head.site.extendedTo(lastBoundary))
     else
       ParenthesizedType(inParentheses(tpe), emptySiteAtLastBoundary)
   
