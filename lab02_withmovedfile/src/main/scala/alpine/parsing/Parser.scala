@@ -203,7 +203,7 @@ class Parser(val source: SourceFile):
         var pre = o.precedence
         var stop1 = false
         while !stop1 && pre >= precedence do
-          val op = o
+          val op = lookAhead.get
           val opSite = operatorId._2
           var rhs = ascribed()
           operatorId = peek match 
@@ -213,7 +213,6 @@ class Parser(val source: SourceFile):
           lookAhead match
             case None => 
               stop1 = true
-              lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
             case Some(o) =>
               pre = o.precedence
               var stop = false
@@ -226,10 +225,11 @@ class Parser(val source: SourceFile):
                 lookAhead = operatorId._1
                 lookAhead match
                   case None => 
+                    stop1 = true
                     stop = true
                   case Some(o) =>
                     pre = o.precedence
-              lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+          lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
         lhs
 
   /** Parses and returns an expression with an optional ascription. */
