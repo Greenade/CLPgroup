@@ -252,7 +252,8 @@ class Parser(val source: SourceFile):
             val newRhs = loop2(ascribed(), op)
             val newLhs = InfixApplication(Identifier(op.toString, opSite), lhs, newRhs, lhs.site.extendedTo(lastBoundary))
             loop1(newLhs)
-        case None | _ => lhs
+        case None | _ => 
+          lhs
 
     @tailrec def loop2(rhs: Expression, op: OperatorIdentifier): Expression = 
       val backup = snapshot()
@@ -575,16 +576,21 @@ class Parser(val source: SourceFile):
     if l.length == 1 then l.head else Sum(l, l.head.site.extendedTo(lastBoundary))
 
   private[parsing] def tpeListHelper(): List[Type] =
+    val backup = snapshot()
     val t1 = primaryType()
     t1 match
-      case ErrorTree(_) => List(t1)
+      case ErrorTree(_) => 
+        restore(backup)
+        List(t1)
       case _ =>
         peek match
-          case Some(Token(K.Operator, _)) =>
+          case Some(Token(K.Operator, _)) if peek.get.site.text.toString == "|"=>
             take()
             tpeListHelper() match 
-              case ErrorTree(_) :: next => List(t1)
-              case t => List(t1) ::: t
+              case ErrorTree(_) :: next => 
+                List(t1)
+              case t => 
+                List(t1) ::: t
           case _ =>
             List(t1)
 
