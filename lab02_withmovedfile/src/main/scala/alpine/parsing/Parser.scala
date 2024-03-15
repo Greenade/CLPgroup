@@ -576,12 +576,17 @@ class Parser(val source: SourceFile):
 
   private[parsing] def tpeListHelper(): List[Type] =
     val t1 = primaryType()
-    peek match
-      case Some(Token(K.Operator, _)) =>
-        take()
-        List(t1) ::: tpeListHelper()
+    t1 match
+      case ErrorTree(_) => List(t1)
       case _ =>
-        List(t1)
+        peek match
+          case Some(Token(K.Operator, _)) =>
+            take()
+            tpeListHelper() match 
+              case ErrorTree(_) :: next => List(t1)
+              case t => List(t1) ::: t
+          case _ =>
+            List(t1)
 
 
   /** Parses and returns a type-level primary exression. */
