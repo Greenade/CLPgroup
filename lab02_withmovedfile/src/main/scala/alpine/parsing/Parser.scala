@@ -68,10 +68,14 @@ class Parser(val source: SourceFile):
         val ascription = Some(tpe())
 
         peek match
-          case Some(Token(K.Eq, _)) =>
+          case Some(Token(K.Eq, _)) if initializerIsExpected =>
             take()
             val initializer = Some(expression())
             Binding(identifier.site.text.toString,ascription,initializer,identifier.site.extendedTo(lastBoundary))
+
+          case Some(Token(K.Eq, _)) if !initializerIsExpected=>
+            report(SyntaxError("initializer not expected", emptySiteAtLastBoundary))
+            Binding(identifier.site.text.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
 
           case _ if initializerIsExpected =>
             report(ExpectedTokenError(K.Eq, emptySiteAtLastBoundary))
@@ -80,10 +84,14 @@ class Parser(val source: SourceFile):
           case _ =>
            Binding(identifier.site.text.toString,ascription,None,identifier.site.extendedTo(lastBoundary))
 
-      case Some(Token(K.Eq, _)) =>
+      case Some(Token(K.Eq, _)) if initializerIsExpected=>
         take()
         val initializer = Some(expression())
         Binding(identifier.site.text.toString,None,initializer,identifier.site.extendedTo(lastBoundary))
+
+      case Some(Token(K.Eq, _)) if !initializerIsExpected=>
+            report(SyntaxError("initializer not expected", emptySiteAtLastBoundary))
+            Binding(identifier.site.text.toString,None,None,identifier.site.extendedTo(lastBoundary))
 
       case _ if initializerIsExpected =>
         report(ExpectedTokenError(K.Eq, emptySiteAtLastBoundary))
