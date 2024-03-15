@@ -189,48 +189,74 @@ class Parser(val source: SourceFile):
           lookahead := peek next token
       lhs := the result of applying op with operands lhs and rhs
   return lhs */
-  private[parsing] def infixExpressionHelper(lhsGiven : Expression, precedence: Int = ast.OperatorPrecedence.min): Expression =
-    var lhs = lhsGiven // mutable left hand side
-    var operatorId = peek match 
-      case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
-      case _ => (None,emptySiteAtLastBoundary)
-    var lookAhead = operatorId._1
-    lookAhead match
-      case None => 
-        report(SyntaxError("expected operator", emptySiteAtLastBoundary))
-        lhs // maybe it's ErrorTree(lhs.site)
-      case Some(o) =>
-        var pre = o.precedence
-        var stop1 = false
-        while !stop1 && pre >= precedence do
-          val op = lookAhead.get
-          val opSite = operatorId._2
-          var rhs = ascribed()
-          operatorId = peek match 
-            case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
-            case _ => (None,emptySiteAtLastBoundary)
-          lookAhead = operatorId._1
-          lookAhead match
-            case None => 
-              stop1 = true
-            case Some(o) =>
-              pre = o.precedence
-              var stop = false
-              while !stop && pre > precedence do
-                val newPrecedence = op.precedence + (if o.precedence > op.precedence then 1 else 0)
-                rhs = infixExpressionHelper(rhs,newPrecedence)
-                operatorId = peek match 
-                  case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
-                  case _ => (None,emptySiteAtLastBoundary)
-                lookAhead = operatorId._1
-                lookAhead match
-                  case None => 
-                    stop1 = true
-                    stop = true
-                  case Some(o) =>
-                    pre = o.precedence
-          lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
-        lhs
+  private[parsing] def infixExpressionHelper(lhsGiven : Expression, minPrecedence: Int = ast.OperatorPrecedence.min): Expression =
+    // var lhs = lhsGiven // mutable left hand side
+    // var operatorId = peek match 
+    //   case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+    //   case _ => (None,emptySiteAtLastBoundary)
+    // var lookAhead = operatorId._1
+    // lookAhead match
+    //   case None => 
+    //     report(SyntaxError("expected operator", emptySiteAtLastBoundary))
+    //     lhs // maybe it's ErrorTree(lhs.site)
+    //   case Some(o) =>
+    //     var pre = o.precedence
+    //     var stop1 = false
+    //     while !stop1 && pre >= precedence do
+    //       val op = lookAhead.get
+    //       val opSite = operatorId._2
+    //       var rhs = ascribed()
+    //       operatorId = peek match 
+    //         case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+    //         case _ => (None,emptySiteAtLastBoundary)
+    //       lookAhead = operatorId._1
+    //       lookAhead match
+    //         case None => 
+    //           stop1 = true
+    //         case Some(o) =>
+    //           pre = o.precedence
+    //           var stop = false
+    //           while !stop && pre > precedence do
+    //             val newPrecedence = op.precedence + (if o.precedence > op.precedence then 1 else 0)
+    //             rhs = infixExpressionHelper(rhs,newPrecedence)
+    //             operatorId = peek match 
+    //               case Some(Token(K.Operator, _)) => operatorIdentifier() // get the operator identifier
+    //               case _ => (None,emptySiteAtLastBoundary)
+    //             lookAhead = operatorId._1
+    //             lookAhead match
+    //               case None => 
+    //                 stop1 = true
+    //                 stop = true
+    //               case Some(o) =>
+    //                 pre = o.precedence
+    //       lhs = InfixApplication(Identifier(op.toString,opSite), lhs, rhs, lhs.site.extendedTo(lastBoundary))
+    //     lhs
+    def loop1(lhs: Expression): Expression =
+      peek match
+        case Some(Token(K.Operator, _)) =>
+          val (opId, opSite) = operatorIdentifier()
+          val lookahead = opId.get
+          if lookahead.precedence < minPrecedence then lhs
+          else
+            val op = lookahead
+            //take()
+            val newRhs = loop2(ascribed(), op)
+            val newLhs = InfixApplication(Identifier(op.toString, opSite), lhs, newRhs, lhs.site.extendedTo(lastBoundary))
+            loop1(newLhs)
+        case None | _ => lhs
+
+    @tailrec def loop2(rhs: Expression, op: OperatorIdentifier): Expression = 
+      peek match
+        case Some(Token(K.Operator, _)) =>
+          val lookahead = operatorIdentifier()._1.get
+          if lookahead.precedence <= op.precedence then rhs
+          else
+            val additional = if lookahead.precedence > op.precedence then 1 else 0
+            val newRHS = infixExpressionHelper(rhs, op.precedence + additional)
+            loop2(newRHS, op)
+        case None | _ => rhs
+
+    loop1(lhsGiven)
 
   /** Parses and returns an expression with an optional ascription. */
   private[parsing] def ascribed(): Expression =
