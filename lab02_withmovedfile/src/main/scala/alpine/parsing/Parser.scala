@@ -236,7 +236,8 @@ class Parser(val source: SourceFile):
         case Some(Token(K.Operator, _)) =>
           val (opId, opSite) = operatorIdentifier()
           val lookahead = opId.get
-          if lookahead.precedence < minPrecedence then lhs
+          if lookahead.precedence < minPrecedence then 
+              lhs
           else
             val op = lookahead
             //take()
@@ -246,15 +247,20 @@ class Parser(val source: SourceFile):
         case None | _ => lhs
 
     @tailrec def loop2(rhs: Expression, op: OperatorIdentifier): Expression = 
+      val backup = snapshot()
+      take()
       peek match
         case Some(Token(K.Operator, _)) =>
+          restore(backup)
           val lookahead = operatorIdentifier()._1.get
           if lookahead.precedence <= op.precedence then rhs
           else
             val additional = if lookahead.precedence > op.precedence then 1 else 0
             val newRHS = infixExpressionHelper(rhs, op.precedence + additional)
             loop2(newRHS, op)
-        case None | _ => rhs
+        case None | _ =>
+          restore(backup)
+          rhs
 
     loop1(lhsGiven)
 
