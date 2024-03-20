@@ -131,7 +131,6 @@ final class Typer(
   def visitRecord(e: ast.Record)(using context: Typer.Context): Type =
     val fields = e.fields.map((f) => Type.Labeled(f.label, f.value.visit(this)))
     context.obligations.constrain(e, Type.Record(e.identifier, fields))
-    // not tested yet, might work
 
   def visitSelection(e: ast.Selection)(using context: Typer.Context): Type =
     val q = e.qualification.visit(this)
@@ -145,9 +144,10 @@ final class Typer(
     context.obligations.constrain(e, m)
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
-    ???
-    /*val apply = Constraint.Apply()
-    context.obligations.add(apply)*/
+    val out = freshTypeVariable()
+    context.obligations.add(Constraint.Apply(e.function.visit(this), e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), out, Constraint.Origin(e.site)))
+    context.obligations.constrain(e, out)
+    // doesn't work yet
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
     ???
@@ -156,7 +156,12 @@ final class Typer(
     ???
 
   def visitConditional(e: ast.Conditional)(using context: Typer.Context): Type =
-    ???
+    val condition = checkInstanceOf(e.condition, Type.Bool)
+    val t = freshTypeVariable()
+    context.obligations.add(Constraint.Subtype(e.successCase.visit(this), t, Constraint.Origin(e.successCase.site)))
+    context.obligations.add(Constraint.Subtype(e.failureCase.visit(this), t, Constraint.Origin(e.failureCase.site)))
+    context.obligations.constrain(e, t)
+    // doesn't work yet
 
   def visitMatch(e: ast.Match)(using context: Typer.Context): Type =
     // Scrutinee is checked in isolation.
