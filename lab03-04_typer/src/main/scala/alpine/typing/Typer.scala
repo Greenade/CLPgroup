@@ -129,7 +129,9 @@ final class Typer(
     context.obligations.constrain(e, Type.String)
 
   def visitRecord(e: ast.Record)(using context: Typer.Context): Type =
-    ???
+    val fields = e.fields.map((f) => Type.Labeled(f.label, f.value.visit(this)))
+    context.obligations.constrain(e, Type.Record(e.identifier, fields))
+    // not tested yet, might work
 
   def visitSelection(e: ast.Selection)(using context: Typer.Context): Type =
     val q = e.qualification.visit(this)
@@ -144,6 +146,8 @@ final class Typer(
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
     ???
+    /*val apply = Constraint.Apply()
+    context.obligations.add(apply)*/
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
     ???
@@ -238,7 +242,7 @@ final class Typer(
     ???
 
   def visitWildcard(p: ast.Wildcard)(using context: Typer.Context): Type =
-    ???
+    context.obligations.constrain(p, Type.Any)
 
   def visitTypeDeclaration(e: ast.TypeDeclaration)(using context: Typer.Context): Type =
     report(TypeError("type declarations are not supported", e.site))
