@@ -309,8 +309,9 @@ final class Typer(
     context.obligations.constrain(p, p.value.visit(this))
 
   def visitRecordPattern(p: ast.RecordPattern)(using context: Typer.Context): Type =
-    ???
-
+    val fields = p.fields.map((f) => Type.Labeled(f.label, f.value.visit(this)))
+    context.obligations.constrain(p, Type.Record(p.identifier, fields))
+    
   def visitWildcard(p: ast.Wildcard)(using context: Typer.Context): Type =
     context.obligations.constrain(p, Type.Any)
 
