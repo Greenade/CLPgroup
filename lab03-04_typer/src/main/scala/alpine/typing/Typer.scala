@@ -144,10 +144,16 @@ final class Typer(
     context.obligations.constrain(e, m)
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
-    val out = freshTypeVariable()
-    context.obligations.add(Constraint.Apply(e.function.visit(this), e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), out, Constraint.Origin(e.site)))
-    context.obligations.constrain(e, out)
+    /*e.visit(this) match 
+      case Type.Arrow(inputs, output) =>
+        context.obligations.add(Constraint.Apply(e.function.visit(this), inputs, output, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, output)
+      case _ => 
+        val fresh = freshTypeVariable()
+        context.obligations.add(Constraint.Apply(e.function.visit(this), e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), fresh, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, fresh)*/
     // doesn't work yet
+    ???
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
     ???
@@ -157,10 +163,15 @@ final class Typer(
 
   def visitConditional(e: ast.Conditional)(using context: Typer.Context): Type =
     val condition = checkInstanceOf(e.condition, Type.Bool)
-    val t = freshTypeVariable()
-    context.obligations.add(Constraint.Subtype(e.successCase.visit(this), t, Constraint.Origin(e.successCase.site)))
-    context.obligations.add(Constraint.Subtype(e.failureCase.visit(this), t, Constraint.Origin(e.failureCase.site)))
-    context.obligations.constrain(e, t)
+    val successTape = e.successCase.visit(this)
+    val failureType = e.failureCase.visit(this)
+    if successTape == failureType then
+      context.obligations.constrain(e, successTape)
+    else
+      val t = freshTypeVariable()
+      context.obligations.add(Constraint.Subtype(successTape, t, Constraint.Origin(e.successCase.site)))
+      context.obligations.add(Constraint.Subtype(failureType, t, Constraint.Origin(e.failureCase.site)))
+      context.obligations.constrain(e, t)
     // doesn't work yet
 
   def visitMatch(e: ast.Match)(using context: Typer.Context): Type =
@@ -183,7 +194,12 @@ final class Typer(
     unexpectedVisit(e)
 
   def visitLet(e: ast.Let)(using context: Typer.Context): Type =
-    ???
+    assignScopeName(e.body)
+    // visit the binding and the body with the new scope name
+    val t = context.inScope(e, (inner) => e.binding.visit(this)(using inner))
+    context.obligations.add(Constraint.Subtype(e.body.visit(this)(using context), t, Constraint.Origin(e.body.site)))
+    t
+    // doesn't work yet
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
     ???
