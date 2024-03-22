@@ -9,6 +9,7 @@ import alpine.util.{Memo, FatalError}
 
 import scala.annotation.tailrec
 import scala.collection.mutable
+import alpine.ast.Typecast
 
 // Visiting a declaration == type checking it
 // Visiting an expression == type inference
@@ -217,6 +218,7 @@ final class Typer(
     // doesn't work yet
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
+    // needs to be tested, depends on other implementations
     assignScopeName(e.body)
     val inp = context.inScope(e, cont => computedUncheckedInputTypes(e.inputs))
     
@@ -233,6 +235,8 @@ final class Typer(
         context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
         t
 
+    
+
   def visitParenthesizedExpression(
       e: ast.ParenthesizedExpression
   )(using context: Typer.Context): Type =
@@ -240,11 +244,25 @@ final class Typer(
     context.obligations.constrain(e, exp)
 
   def visitAscribedExpression(e: ast.AscribedExpression)(using context: Typer.Context): Type =
+    // not finished, still need more constraints and tests
     val result = evaluateTypeTree(e.ascription) match
       case Type.Error =>
         Type.Error
       case ascription =>
-        ???
+        e.operation match
+          case Typecast.Widen => 
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(exp, ascription, Constraint.Origin(e.site)))
+            ascription
+          case Typecast.Narrow =>
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
+            ascription
+          case Typecast.NarrowUnconditionally =>
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
+
+            ascription
     context.obligations.constrain(e, result)
 
   def visitTypeIdentifier(e: ast.TypeIdentifier)(using context: Typer.Context): Type =
