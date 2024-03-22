@@ -167,7 +167,8 @@ final class Typer(
   def visitInfixApplication(e: ast.InfixApplication)(using context: Typer.Context): Type =
     e.function.visit(this) match
       case t: Type.Arrow =>
-        context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
+        val args = Type.Labeled(None,e.lhs.visit(this)) :: Type.Labeled(None,e.rhs.visit(this)) :: Nil
+        context.obligations.add(Constraint.Apply(t, args, t.output, Constraint.Origin(e.site)))
         context.obligations.constrain(e, t.output)
       case e2 =>
         val fresh = freshTypeVariable()
@@ -216,7 +217,21 @@ final class Typer(
     // doesn't work yet
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
-    ???
+    assignScopeName(e.body)
+    val inp = context.inScope(e, cont => computedUncheckedInputTypes(e.inputs))
+    
+    e.output match
+      case Some(o) =>
+        val out = evaluateTypeTree(o)
+        val t = Type.Arrow(inp, out)
+        context.obligations.constrain(e, t)
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
+        t
+      case None =>
+        val t = Type.Arrow(inp, freshTypeVariable())
+        context.obligations.constrain(e, t)
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
+        t
 
   def visitParenthesizedExpression(
       e: ast.ParenthesizedExpression
