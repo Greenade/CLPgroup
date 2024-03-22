@@ -287,7 +287,7 @@ final class Typer(
         case _ => context.obligations.constrain(e, Type.Meta(result.head.tpe))
 
   def visitRecordType(e: ast.RecordType)(using context: Typer.Context): Type =
-    ???
+    Type.Record(e.identifier, e.fields.map((f) => Type.Labeled(f.label, evaluateTypeTree(f.value))))
 
   def visitTypeApplication(e: ast.TypeApplication)(using context: Typer.Context): Type =
     throw FatalError("unsupported generic parameters", e.site)
