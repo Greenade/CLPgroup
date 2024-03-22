@@ -94,7 +94,8 @@ final class Typer(
     assignNameDeclared(d)
 
     val t: Type = context.inScope(d, { (inner) =>
-      ???
+      given Typer.Context = inner
+      computedUncheckedType(d)
     })
 
     val result = if t(Type.Flags.HasError) then Type.Error else t
@@ -292,7 +293,9 @@ final class Typer(
     throw FatalError("unsupported generic parameters", e.site)
 
   def visitArrow(e: ast.Arrow)(using context: Typer.Context): Type =
-    ???
+    val inputs = e.inputs.map((i) => Type.Labeled(i.label, evaluateTypeTree(i.value)))
+    val output = evaluateTypeTree(e.output)
+    Type.Arrow(inputs, output)
 
 
   def visitSum(e: ast.Sum)(using context: Typer.Context): Type =
@@ -325,7 +328,8 @@ final class Typer(
     context.obligations.constrain(p, p.value.visit(this))
 
   def visitRecordPattern(p: ast.RecordPattern)(using context: Typer.Context): Type =
-    ???
+    val fields = p.fields.map((f) => Type.Labeled(f.label, f.value.visit(this)))
+    context.obligations.constrain(p, Type.Record(p.identifier, fields))
 
   def visitWildcard(p: ast.Wildcard)(using context: Typer.Context): Type =
     context.obligations.constrain(p, Type.Any)
