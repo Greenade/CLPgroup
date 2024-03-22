@@ -217,7 +217,21 @@ final class Typer(
     // doesn't work yet
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
-    ???
+    assignScopeName(e.body)
+    val inp = context.inScope(e, cont => computedUncheckedInputTypes(e.inputs))
+    
+    e.output match
+      case Some(o) =>
+        val out = evaluateTypeTree(o)
+        val t = Type.Arrow(inp, out)
+        context.obligations.constrain(e, t)
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
+        t
+      case None =>
+        val t = Type.Arrow(inp, freshTypeVariable())
+        context.obligations.constrain(e, t)
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
+        t
 
   def visitParenthesizedExpression(
       e: ast.ParenthesizedExpression
