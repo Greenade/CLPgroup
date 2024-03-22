@@ -144,16 +144,15 @@ final class Typer(
     context.obligations.constrain(e, m)
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
-    /*e.visit(this) match 
-      case Type.Arrow(inputs, output) =>
-        context.obligations.add(Constraint.Apply(e.function.visit(this), inputs, output, Constraint.Origin(e.site)))
-        context.obligations.constrain(e, output)
-      case _ => 
+    e.function.visit(this) match
+      case t: Type.Arrow =>
+        context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t.output)
+      case e2 =>
         val fresh = freshTypeVariable()
-        context.obligations.add(Constraint.Apply(e.function.visit(this), e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), fresh, Constraint.Origin(e.site)))
-        context.obligations.constrain(e, fresh)*/
+        context.obligations.add(Constraint.Apply(e2, e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), fresh, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, fresh)
     // doesn't work yet
-    ???
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
     ???
