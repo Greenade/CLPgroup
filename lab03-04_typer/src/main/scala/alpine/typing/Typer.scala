@@ -286,7 +286,7 @@ final class Typer(
     if hasErrorMember then Type.Error else partialResult
 
   def visitParenthesizedType(e: ast.ParenthesizedType)(using context: Typer.Context): Type =
-    ???
+    context.obligations.constrain(e, e.inner.visit(this))
 
   def visitValuePattern(p: ast.ValuePattern)(using context: Typer.Context): Type =
     context.obligations.constrain(p, p.value.visit(this))
