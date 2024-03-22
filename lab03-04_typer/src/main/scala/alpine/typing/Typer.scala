@@ -234,14 +234,22 @@ final class Typer(
   def visitTypeIdentifier(e: ast.TypeIdentifier)(using context: Typer.Context): Type =
     val result = resolveUnqualifiedTermIdentifier(e.value, e.site)
     if result.isEmpty then
+      report(TypeError(s"undefined type name '${e.value}'", e.site))
       context.obligations.constrain(e, Type.Error)
-      throw FatalError("no type with that name", e.site)
     else if result.length > 1 then
+      report(TypeError(s"ambiguous use of type name '${e.value}'", e.site))
       context.obligations.constrain(e, Type.Error)
-      throw FatalError("ambiguous type name", e.site)
     else
-      context.obligations.constrain(e, Type.Meta(result.head.tpe))
-//not done yet
+      // val t = builtinTopLevelEntities.apply(e.value).head.tpe
+      // context.obligations.constrain(e, t)
+      e.value match
+        case "Bool" => context.obligations.constrain(e, Type.Bool)
+        case "Int" => context.obligations.constrain(e, Type.Int)
+        case "Float" => context.obligations.constrain(e, Type.Float)
+        case "String" => context.obligations.constrain(e, Type.String)
+        case "Any" => context.obligations.constrain(e, Type.Any)
+        case "Never" => context.obligations.constrain(e, Type.Never)
+        case _ => context.obligations.constrain(e, Type.Meta(result.head.tpe))
 
   def visitRecordType(e: ast.RecordType)(using context: Typer.Context): Type =
     ???
