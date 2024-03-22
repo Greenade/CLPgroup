@@ -206,7 +206,8 @@ final class Typer(
   def visitParenthesizedExpression(
       e: ast.ParenthesizedExpression
   )(using context: Typer.Context): Type =
-    ???
+    val exp = e.inner.visit(this)
+    context.obligations.constrain(e, exp)
 
   def visitAscribedExpression(e: ast.AscribedExpression)(using context: Typer.Context): Type =
     val result = evaluateTypeTree(e.ascription) match
