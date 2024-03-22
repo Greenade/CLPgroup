@@ -139,7 +139,8 @@ final class Typer(
     
     e.selectee match
       case s: ast.Identifier =>
-        ???
+        val candidates = lookupMember(s.value, q).map((e) => symbols.EntityReference(e, e.tpe))
+        bindEntityReference(e, candidates)
       case s: ast.IntegerLiteral =>
         ???
     context.obligations.constrain(e, m)
