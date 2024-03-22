@@ -207,8 +207,6 @@ class Parser(val source: SourceFile):
               lhs
           else
             val op = lookahead
-            //take()
-            print("\n" + lhs.toString())
             val newRhs = loop2(ascribed(), op)
             val newLhs = InfixApplication(Identifier(op.toString, opSite), lhs, newRhs, lhs.site.extendedTo(lastBoundary))
             loop1(newLhs)
