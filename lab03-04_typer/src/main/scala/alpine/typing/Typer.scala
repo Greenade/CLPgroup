@@ -225,6 +225,8 @@ final class Typer(
       report(TypeError(s"ambiguous use of type name '${e.value}'", e.site))
       context.obligations.constrain(e, Type.Error)
     else
+      // val t = builtinTopLevelEntities.apply(e.value).head.tpe
+      // context.obligations.constrain(e, t)
       e.value match
         case "Bool" => context.obligations.constrain(e, Type.Bool)
         case "Int" => context.obligations.constrain(e, Type.Int)
