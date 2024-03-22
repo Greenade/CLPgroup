@@ -219,7 +219,7 @@ final class Typer(
 
   def visitTypeIdentifier(e: ast.TypeIdentifier)(using context: Typer.Context): Type =
     val result = resolveUnqualifiedTermIdentifier(e.value, e.site)
-    if result.isEmpty ||  then
+    if result.isEmpty then
       context.obligations.constrain(e, Type.Error)
       throw FatalError("no type with that name", e.site)
     else if result.length > 1 then
