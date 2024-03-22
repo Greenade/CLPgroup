@@ -155,10 +155,25 @@ final class Typer(
     // doesn't work yet
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
-    ???
+    e.function.visit(this) match
+      case t: Type.Arrow =>
+        context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t.output)
+      case e2 =>
+        val fresh = freshTypeVariable()
+        context.obligations.add(Constraint.Apply(e2, Type.Labeled(None,e.argument.visit(this)) :: Nil, fresh, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, fresh)
 
   def visitInfixApplication(e: ast.InfixApplication)(using context: Typer.Context): Type =
-    ???
+    e.function.visit(this) match
+      case t: Type.Arrow =>
+        context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t.output)
+      case e2 =>
+        val fresh = freshTypeVariable()
+        val args = Type.Labeled(None,e.lhs.visit(this)) :: Type.Labeled(None,e.rhs.visit(this)) :: Nil
+        context.obligations.add(Constraint.Apply(e2, args, fresh, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, fresh)
 
   def visitConditional(e: ast.Conditional)(using context: Typer.Context): Type =
     val condition = checkInstanceOf(e.condition, Type.Bool)
