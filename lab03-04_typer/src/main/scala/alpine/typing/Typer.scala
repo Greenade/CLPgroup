@@ -259,7 +259,10 @@ final class Typer(
     throw FatalError("unsupported generic parameters", e.site)
 
   def visitArrow(e: ast.Arrow)(using context: Typer.Context): Type =
-    ???
+    val inputs = e.inputs
+    val output = evaluateTypeTree(e.output)
+    Type.Arrow(inputs, output)
+    //not done yet
 
 
   def visitSum(e: ast.Sum)(using context: Typer.Context): Type =
