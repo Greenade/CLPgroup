@@ -213,11 +213,11 @@ final class Typer(
 
   def visitLet(e: ast.Let)(using context: Typer.Context): Type =
     assignScopeName(e.body)
+
     // visit the binding and the body with the new scope name
-    val t = context.inScope(e, (inner) => e.binding.visit(this)(using inner))
-    context.obligations.add(Constraint.Subtype(e.body.visit(this)(using context), t, Constraint.Origin(e.body.site)))
-    t
-    // doesn't work yet
+    val r = context.inScope(e.body, (inner) => e.binding.visit(this)(using inner))
+    val s = context.inScope(e, (inner) => e.body.visit(this)(using inner))
+    context.obligations.constrain(e, s)
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
     // needs to be tested, depends on other implementations
