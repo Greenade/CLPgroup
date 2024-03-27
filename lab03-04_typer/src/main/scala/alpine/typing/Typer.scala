@@ -136,15 +136,19 @@ final class Typer(
 
   def visitSelection(e: ast.Selection)(using context: Typer.Context): Type =
     val q = e.qualification.visit(this)
-    val m = freshTypeVariable()
+    val f = freshTypeVariable()
     
     e.selectee match
       case s: ast.Identifier =>
-        val candidates = lookupMember(s.value, q).map((e) => symbols.EntityReference(e, e.tpe))
-        bindEntityReference(e, candidates)
+        context.obligations.add(Constraint.Member(q, f, s.value, e.selectee, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, f)
       case s: ast.IntegerLiteral =>
-        m //quick fix some of the tests
-    context.obligations.constrain(e, m)
+        evaluateFieldIndex(s) match
+          case Some(i) => 
+            context.obligations.add(Constraint.Member(q, f, i, e.selectee, Constraint.Origin(e.site)))
+            context.obligations.constrain(e, f)
+          case None =>
+            Type.Error
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
     e.function.visit(this) match
