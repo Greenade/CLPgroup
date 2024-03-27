@@ -143,8 +143,8 @@ final class Typer(
         val candidates = lookupMember(s.value, q).map((e) => symbols.EntityReference(e, e.tpe))
         bindEntityReference(e, candidates)
       case s: ast.IntegerLiteral =>
-        context.obligations.constrain(e, Type.Int)
-
+        m //quick fix some of the tests
+    context.obligations.constrain(e, m)
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
     e.function.visit(this) match
@@ -246,32 +246,25 @@ final class Typer(
     context.obligations.constrain(e, exp)
 
   def visitAscribedExpression(e: ast.AscribedExpression)(using context: Typer.Context): Type =
-    // not finished, still need more constraints and tests$
-    val asc = evaluateTypeTree(e.ascription)
-
-    val result = e.operation match
+    // not finished, still need more constraints and tests
+    val result = evaluateTypeTree(e.ascription) match
+      case Type.Error =>
+        e.inner.visit(this)
+      case ascription =>
+        e.operation match
           case Typecast.Widen => 
-            asc match 
-              case Type.Error => asc
-              case _ => 
-                val exp = e.inner.visit(this)
-                context.obligations.add(Constraint.Subtype(exp, asc, Constraint.Origin(e.site)))
-                asc
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(exp, ascription, Constraint.Origin(e.site)))
+            ascription
           case Typecast.Narrow =>
-            asc match 
-              case Type.Error => asc
-              case _ => 
-                val exp = e.inner.visit(this)
-                context.obligations.add(Constraint.Subtype(asc, exp, Constraint.Origin(e.site)))
-                asc
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
+            ascription
           case Typecast.NarrowUnconditionally =>
-            asc match 
-              case Type.Error => asc
-              case _ =>
-                val exp = e.inner.visit(this)
-                context.obligations.add(Constraint.Subtype(asc, exp, Constraint.Origin(e.site)))
-                asc
-        
+            val exp = e.inner.visit(this)
+            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
+            ascription
+
     context.obligations.constrain(e, result)
 
   def visitTypeIdentifier(e: ast.TypeIdentifier)(using context: Typer.Context): Type =
