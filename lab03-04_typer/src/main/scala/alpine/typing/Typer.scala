@@ -246,25 +246,32 @@ final class Typer(
     context.obligations.constrain(e, exp)
 
   def visitAscribedExpression(e: ast.AscribedExpression)(using context: Typer.Context): Type =
-    // not finished, still need more constraints and tests
-    val result = evaluateTypeTree(e.ascription) match
-      case Type.Error =>
-        Type.Error
-      case ascription =>
-        e.operation match
-          case Typecast.Widen => 
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(exp, ascription, Constraint.Origin(e.site)))
-            ascription
-          case Typecast.Narrow =>
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
-            ascription
-          case Typecast.NarrowUnconditionally =>
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
+    // not finished, still need more constraints and tests$
+    val asc = evaluateTypeTree(e.ascription)
 
-            ascription
+    val result = e.operation match
+          case Typecast.Widen => 
+            asc match 
+              case Type.Error => asc
+              case _ => 
+                val exp = e.inner.visit(this)
+                context.obligations.add(Constraint.Subtype(exp, asc, Constraint.Origin(e.site)))
+                asc
+          case Typecast.Narrow =>
+            asc match 
+              case Type.Error => asc
+              case _ => 
+                val exp = e.inner.visit(this)
+                context.obligations.add(Constraint.Subtype(asc, exp, Constraint.Origin(e.site)))
+                asc
+          case Typecast.NarrowUnconditionally =>
+            asc match 
+              case Type.Error => asc
+              case _ =>
+                val exp = e.inner.visit(this)
+                context.obligations.add(Constraint.Subtype(asc, exp, Constraint.Origin(e.site)))
+                asc
+        
     context.obligations.constrain(e, result)
 
   def visitTypeIdentifier(e: ast.TypeIdentifier)(using context: Typer.Context): Type =
