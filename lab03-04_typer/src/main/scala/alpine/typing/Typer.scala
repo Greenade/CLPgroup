@@ -253,7 +253,7 @@ final class Typer(
     // not finished, still need more constraints and tests
     val result = evaluateTypeTree(e.ascription) match
       case Type.Error =>
-        e.inner.visit(this)
+        Type.Error
       case ascription =>
         e.operation match
           case Typecast.Widen => 
