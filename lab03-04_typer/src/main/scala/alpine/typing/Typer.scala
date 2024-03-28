@@ -257,17 +257,12 @@ final class Typer(
       case ascription =>
         e.operation match
           case Typecast.Widen => 
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(exp, ascription, Constraint.Origin(e.site)))
+            checkInstanceOf(e.inner, ascription)
             ascription
           case Typecast.Narrow =>
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
-            ascription
+            Type.option(checkedTypeEnsuringConvertible(e.inner, ascription))
           case Typecast.NarrowUnconditionally =>
-            val exp = e.inner.visit(this)
-            context.obligations.add(Constraint.Subtype(ascription, exp, Constraint.Origin(e.site)))
-            ascription
+            Type.option(checkedTypeEnsuringConvertible(e.inner, ascription))
 
     context.obligations.constrain(e, result)
 
