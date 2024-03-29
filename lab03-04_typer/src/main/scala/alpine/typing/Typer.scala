@@ -233,19 +233,16 @@ final class Typer(
         
         e.output match
         case Some(o) =>
-          val out = evaluateTypeTree(o)
+          val out = evaluateTypeTree(o)(using cont)
           val t = Type.Arrow(inp, out)
-          context.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
-          context.obligations.constrain(e, t)
+          cont.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
+          cont.obligations.constrain(e, t)
         case None =>
           val t = Type.Arrow(inp, freshTypeVariable())
-          context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
-          context.obligations.constrain(e, t)
+          cont.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
+          cont.obligations.constrain(e, t)
 
       })
-    
-    
-
     
 
   def visitParenthesizedExpression(
