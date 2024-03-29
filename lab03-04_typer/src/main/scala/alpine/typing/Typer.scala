@@ -95,12 +95,15 @@ final class Typer(
 
     val t: Type = context.inScope(d, { (inner) =>
       given Typer.Context = inner
-      computedUncheckedType(d)
+      val fType = computedUncheckedType(d)
+      //context.obligations.add(Constraint.Subtype(d.body.visit(this), fType.output, Constraint.Origin(d.site)))
+      fType
     })
 
     val result = if t(Type.Flags.HasError) then Type.Error else t
     properties.checkedType.put(d, result)
     result
+
   def visitParameter(d: ast.Parameter)(using context: Typer.Context): Type =
     addToParent(d)
     assignNameDeclared(d)
@@ -151,19 +154,24 @@ final class Typer(
             Type.Error
 
   def visitApplication(e: ast.Application)(using context: Typer.Context): Type =
+    val args = e.arguments.map(l => Type.Labeled(l.label, l.value.visit(this)))
     e.function.visit(this) match
       case t: Type.Arrow =>
+        /* all arguments in the application should have the same type as in the function parameters */
+        t.inputs.zip(args).foreach((l, r) => 
+          context.obligations.add(Constraint.Equal(l.value, r.value, Constraint.Origin(e.site)))
+        )
         context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
         context.obligations.constrain(e, t.output)
       case e2 =>
         val fresh = freshTypeVariable()
-        context.obligations.add(Constraint.Apply(e2, e.arguments.map(l => Type.Labeled(l.label,l.value.visit(this))), fresh, Constraint.Origin(e.site)))
+        context.obligations.add(Constraint.Apply(e2, args, fresh, Constraint.Origin(e.site)))
         context.obligations.constrain(e, fresh)
-    // doesn't work yet
 
   def visitPrefixApplication(e: ast.PrefixApplication)(using context: Typer.Context): Type =
     e.function.visit(this) match
       case t: Type.Arrow =>
+        context.obligations.add(Constraint.Equal(e.argument.visit(this), t.inputs.head.value, Constraint.Origin(e.site)))
         context.obligations.add(Constraint.Apply(t, t.inputs, t.output, Constraint.Origin(e.site)))
         context.obligations.constrain(e, t.output)
       case e2 =>
@@ -174,6 +182,8 @@ final class Typer(
   def visitInfixApplication(e: ast.InfixApplication)(using context: Typer.Context): Type =
     e.function.visit(this) match
       case t: Type.Arrow =>
+        context.obligations.add(Constraint.Equal(e.lhs.visit(this), t.inputs(0).value, Constraint.Origin(e.site)))
+        context.obligations.add(Constraint.Equal(e.rhs.visit(this), t.inputs(1).value, Constraint.Origin(e.site)))
         val args = Type.Labeled(None,e.lhs.visit(this)) :: Type.Labeled(None,e.rhs.visit(this)) :: Nil
         context.obligations.add(Constraint.Apply(t, args, t.output, Constraint.Origin(e.site)))
         context.obligations.constrain(e, t.output)
@@ -194,7 +204,6 @@ final class Typer(
       context.obligations.add(Constraint.Subtype(successTape, t, Constraint.Origin(e.successCase.site)))
       context.obligations.add(Constraint.Subtype(failureType, t, Constraint.Origin(e.failureCase.site)))
       context.obligations.constrain(e, t)
-    // doesn't work yet
 
   def visitMatch(e: ast.Match)(using context: Typer.Context): Type =
     // Scrutinee is checked in isolation.
