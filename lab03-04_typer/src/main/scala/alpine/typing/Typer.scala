@@ -226,20 +226,18 @@ final class Typer(
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
     // needs to be tested, depends on other implementations
     assignScopeName(e.body)
-    val inp = context.inScope(e, cont => computedUncheckedInputTypes(e.inputs))
+    val inp = context.inScope(e.body, cont => computedUncheckedInputTypes(e.inputs)(using cont))
     
     e.output match
       case Some(o) =>
         val out = evaluateTypeTree(o)
         val t = Type.Arrow(inp, out)
-        context.obligations.constrain(e, t)
         context.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
-        t
+        context.obligations.constrain(e, t)
       case None =>
         val t = Type.Arrow(inp, freshTypeVariable())
-        context.obligations.constrain(e, t)
         context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
-        t
+        context.obligations.constrain(e, t)
 
     
 
