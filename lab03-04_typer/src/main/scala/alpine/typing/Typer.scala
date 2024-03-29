@@ -224,25 +224,21 @@ final class Typer(
     context.obligations.constrain(e, s)
 
   def visitLambda(e: ast.Lambda)(using context: Typer.Context): Type =
-    // needs to be tested, depends on other implementations
     assignScopeName(e)
-    context.inScope(
-      e.body, 
-      cont => {
-        val inp = computedUncheckedInputTypes(e.inputs)(using cont)
-        
-        e.output match
-        case Some(o) =>
-          val out = evaluateTypeTree(o)(using cont)
-          val t = Type.Arrow(inp, out)
-          cont.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.body.site)))
-          cont.obligations.constrain(e, t)
-        case None =>
-          val t = Type.Arrow(inp, freshTypeVariable())
-          cont.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.body.site)))
-          cont.obligations.constrain(e, t)
-
-      })
+    context.inScope(e, { (inner) => 
+      given Typer.Context = inner 
+      val inp = computedUncheckedInputTypes(e.inputs) 
+      e.output match
+      case Some(o) =>
+        val out = evaluateTypeTree(o)
+        val t = Type.Arrow(inp, out)
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), out, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t)
+      case None =>
+        val t = Type.Arrow(inp, freshTypeVariable())
+        context.obligations.add(Constraint.Subtype(e.body.visit(this), t.output, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t)
+    })
     
 
   def visitParenthesizedExpression(
