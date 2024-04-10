@@ -10,6 +10,7 @@ import scala.annotation.tailrec
 import scala.collection.mutable
 import alpine.symbols.Type
 import alpine.symbols.Type.Bool
+import alpine.ast.Typecast
 
 /** The transpilation of an Alpine program to Scala. */
 final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrinter.Context, Unit]:
@@ -224,6 +225,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     context.output ++= n.value
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
+    /* TODO : possibly call emitRecord* functions ? */
     ???
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
@@ -263,10 +265,22 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     n.failureCase.visit(this)
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =
-    ???
+    n.scrutinee.visit(this)
+    context.output ++= "match { \n"
+    context.indentation += 1
+    n.cases.foreach(c => c.visit(this))
+    context.indentation -= 1
+    context.output ++= "}\n"
+    // TODO : to be tested
 
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
-    ???
+    context.output ++= "case "
+    n.pattern.visit(this)
+    context.output ++= "=> "
+    context.indentation += 1
+    n.body.visit(this)
+    context.indentation -= 1
+    // TODO : to be tested 
 
   override def visitLet(n: ast.Let)(using context: Context): Unit =
     // Use a block to uphold lexical scoping.
@@ -304,7 +318,16 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    ???
+    n.inner.visit(this)
+    context.output ++= ".asInstanceOf["
+    /* TODO later : does the operation affect anything ? */
+    //n.operation match
+    //  case Typecast.Widen =>
+    //  case Typecast.Narrow => 
+    //  case Typecast.NarrowUnconditionally =>
+
+    transpiledType(n.ascription.tpe)
+    context.output ++= "] "
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -331,7 +354,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     ???
 
   override def visitWildcard(n: ast.Wildcard)(using context: Context): Unit =
-    ???
+    context.output ++= "_"
 
   override def visitError(n: ast.ErrorTree)(using context: Context): Unit =
     unexpectedVisit(n)
