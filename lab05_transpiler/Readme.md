@@ -1,501 +1,252 @@
-# Lab 03 - Typer
+# Lab 05 - Transpiler
 
-In this third, you will implement the typer for the Alpine compiler.
+In this fourth lab, you will implement a transpiler from Alpine to Scala.
+Recall that a transpiler is a compiler that translates code from one programming language to another language meant to be read and modified by humans.
 
 ## Obtaining the lab files
 
-To get the lab files, you have 2 options:
+As in the previous labs, you can obtain the new lab files by cloning the repository or downloading the ZIP file from Moodle. Two ways to proceed:
 
-* pull this repository if you already cloned it last week. Otherwise, you can clone it by running the following command:
+- **Cloning the repository**: Clone the repository and put back the files you have modified in the previous labs. (`src/main/scala/alpine/typing/Typer.scala`, `src/main/scala/alpine/parser/Parser.scala`, `src/main/scala/alpine/interpreter/Interpreter.scala`).
+- **Copying only new files**: If you don't want to clone the repository again, you can download the ZIP file from Moodle and copy the new files to your project.
 
-  ```console
-  $ git pull
-  ```
+The new files/updated files are:
+- `scala_rt/*`
+- `src/main/scala/alpine/driver/Driver.scala`
+- `src/main/scala/alpine/codegen/ScalaPrinter.scala`
+- `src/main/scala/Main.scala`
+- `src/main/scala/symbols/Entities.scala`
+- `src/main/scala/symbols/EntityReference.scala`
+- `src/main/scala/symbols/Types.scala`
+- `src/main/scala/typing/ProofObligations.scala`
+- `src/main/scala/typing/Typer.scala` (please see below.)
+- `src/test/res/*` (new folder containing files)
+- `src/test/scala/alpine/transpiler/*` (new folder containing files)
 
-  or
+### `Typer.scala` modification
 
-  ```console
-  $ git clone https://github.com/epfl-lara/compiler2024-labs-public.git
-  ```
-
-* Download the zip file on Moodle
-
-Then take your current `alpine` project, i.e., where you implemented the interpreter and the parser, and:
-
-* copy the `typing/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/alpine/typing`
-* copy the `Main.scala` file from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/Main.scala`
-* copy the `driver/` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/main/scala/alpine/driver`
-* copy the new test files by copying the `test/typing` directory from this week (either from zip or repo) into your `alpine` project at this place: `src/test/scala/alpine/typing`
-* move the interpreter tests from `archive/test/evaluation` back to`src/test/scala/alpine/evaluation`.
-
-_Note:_ the `InterpreterTests.scala` contain an old behavior that is not relevant anymore. You can either delete it or pull the new changes from the repository.
-
-Your project directory structure should look like something like this:
-
-```console
-alpine/
-├── archive/                                 <----- YOU CAN DELETE THIS DIRECTORY
-│   ├── test/
-│   │   ├── evaluation/                    
-│   │   │   ├── InterpreterTest.scala
-├── src/
-│   ├── main/
-│   │   ├── scala/
-│   │   │   ├── alpine/
-│   │   │   │   ├── driver/                  <----- COPY FROM THIS WEEK FILES (replace the current one)
-│   │   │   │   ├── evaluation/
-│   │   │   │   │   ├── Interpreter.scala
-│   │   │   │   ├── parsing/                 
-│   │   │   │   │   ├── Parser.scala
-│   │   │   │   │   ├── ...
-│   │   │   │   ├── typing/                   <----- COPY FROM THIS WEEK FILES
-│   │   │   │   │   ├── Typer.scala
-│   │   │   │   │   ├── ...
-│   │   │   │   ├── util/                    
-│   │   │   │   │   ├── ...
-│   │   │   ├── Main.scala                   <----- COPY FROM THIS WEEK FILES (replace the current one)
-├── test/
-│   ├── scala/
-│   │   ├── alpine/
-│   │   │   ├── evaluation/                  <----- MOVE BACK FROM ARCHIVE
-│   │   │   │   ├── InterpreterTest.scala
-│   │   │   ├── parsing/                     
-│   │   │   │   ├── ...
-│   │   │   ├── typing/                       <----- COPY FROM THIS WEEK FILES
-│   │   │   │   ├── TyperTest.scala
-│   │   │   ├── util/                        
-```
-
-
-## Submit your work
-
-To submit your work, go to this week assignment on Moodle and upload the following file:
-
-* `src/main/scala/alpine/typing/Typer.scala`
-
-## General idea of the project
-
-Let's recall the global idea of a simple compiler's pipeline:
-
-```
-Source code -> Lexer -> Parser -> Type checking -> Assembly generation
-```
-
-During this lab, you will implement the type checking phase of the Alpine compiler. Note that it does three things:
-
-* It checks that the program is well-typed, i.e. that the types of the expressions are consistent with the types of the variables, the types of the functions (including the fact that the function is called with the right number of arguments and that the types of the arguments are consistent with the types of the parameters), and the types of the constants.
-* It also infers the types of expressions that do not have a type ascription, i.e. it computes the type of each expression and stores it in the AST.
-* It also perform “name resolution”: every variable and function call should be resolved to a unique definition (this is the `referredEntity` field from the interpreter lab.) For example, if the program contains two function definitions `fun f(x: Int) -> Int { ... }` and `fun f(x: Float) -> Float { ... }`, then the call `f(42)` should be resolved to one of the two definitions. The choice of the definition depends on the type of the argument `42`.
-
-### Supported language features
-
-The type checker supports all the features described in the language description (i.e., in this [file](language_desc.md)), EXCEPT the ***Type declarations***. This means, your typer does not have to handle the constructs of the form
-
-```swift
-type T = Int
-type ListInt = #nil | #cons(head: Int, tail: ListInt)
-```
-
-Specifically, the subset of the language that the typer will handle does NOT include recursive types.
-
-### Basics
-
-The typer will be implemented in the `Typer.scala` file. It will visit the AST and return the computed/discovered types after having checked their consistence.
-
-#### Constraints
-
-To solve the typing problem, we will generate a set of constraints and solve them using the provided `Solver`.
-
-Here are the available constraints that the solver can handle:
-
-* `Equal(lhs: Type, rhs: Type, origin: Origin)`: the left hand side and the right hand side should have the same type.
-* `Subtype(lhs: Type, rhs: Type, origin: Origin)`: the left hand side should be a subtype of the right hand side.
-* `Apply(function: Type, inputs: List[Type.Labeled], output: Type, origin: Origin)`: the function should be a function type with the given inputs and output types.
-* `Member(lhs: Type, rhs: Type, member: String | Int, selection: Expression, origin: Origin)`: the left hand side should have a member with the type `rhs`, i.e., something of the `lhs.member: rhs`. `selection` is the expression of the member selection.
-* `Overload(name: Tree, candidates: List[EntityReference], tpe: Type, origin: Origin)`: this constraint is responsible of the name analysis mentioned above. The name should be the name of entity (e.g., a function names) that can refer to multiple entities. All those entities are passed in  `candidates`. This constraint indicates to the solver that one of the entity in the list should have the type `tpe`. The `Solver` will then pick the right entity if it exists. This is how the `Typer` will resolve the ambiguity of the function call `f(42)` mentioned above.
-  
-The origin is the AST node that generated this constraint (this is to show a meaningful error to the user in case the constraint cannot be solved).
-
-All of those constraints are stored in an instance of the `ProofObligations` class that will be passed to the solver.
-
-To add new constraints you can use:
-
-* `context.obligations.constrain(e, type)` to add an equality constraint that the expression `e` should have type `type`. This function also returns the currently inferred type of `e`.
-* `context.obligations.add(constraint)` to add a constraint `constraint` to the obligations (any type of constraint, unlike the other possible function).
-
-#### Fresh type variables
-
-When infering types, it is not always possible to know the type of an expression when encountering it. For example, let us take the following code:
-
-```swift
-let a = 1
-let x = if (a <= 0) { #person(name: "Jean") } else { #person(name: "Jean", age: a) }
-```
-
-In this case, when typing the `if` expression, we cannot fix the type of the `then` and `else` branches. This is because we do not know the type of `x` (we are inferring it), and we only know that the type of an `if` expression is a *supertype* of the types of the `then` and `else` branches.
-
-So to infer the type of `x`, we assign it a *fresh type variable* $\tau$, and we add constraint for this type. The `Solver` is then responsible to find a type for $\tau$ that satisfies all the constraints.
-
-To generate a fresh type variable, please use the `freshTypeVariable()` method.
-
-#### Visitor
-
-We have provided the implementations of the `visit` function of identifiers and literals, as well as for the pattern matching. You will have to implement the `visit` functions for the other AST nodes.
+There is an update for the `Typer.scala` file:
 
 ```scala
-def visitBooleanLiteral(e: ast.BooleanLiteral)(using context: Typer.Context): Type =
-  context.obligations.constrain(e, Type.Bool)
+  private def commit(solution: Solver.Solution, obligations: ProofObligations): Unit =
+    for (n, t) <- obligations.inferredType do
+      val u = solution.substitution.reify(t)
+      val v = properties.checkedType.put(n, u)
+      assert(v.map((x) => x == u).getOrElse(true))
 
-def visitIntegerLiteral(e: ast.IntegerLiteral)(using context: Typer.Context): Type =
-  context.obligations.constrain(e, Type.Int)
+      // The cache may have an unchecked type for `n` if it's a declaration whose type has been
+      // inferred (i.e., variable in a match case without ascription).
+      properties.uncheckedType.updateWith(n)((x) => x.map((_) => Memo.Computed(u)))
 
-def visitFloatLiteral(e: ast.FloatLiteral)(using context: Typer.Context): Type =
-  context.obligations.constrain(e, Type.Float)
+    for (n, r) <- solution.binding do
+      val s = symbols.EntityReference(r.entity, solution.substitution.reify(r.tpe))
+      properties.treeToReferredEntity.put(n, s)
 
-def visitStringLiteral(e: ast.StringLiteral)(using context: Typer.Context): Type =
-  context.obligations.constrain(e, Type.String)
+    reportBatch(solution.diagnostics.elements)
+    assert(solution.isSound || diagnostics.containsError, "inference failed without diagnostic")
 ```
 
-In each of these methods, we add a new constraint that the visited AST node is of type `Type.Bool`, `Type.Int`, `Type.Float` or `Type.String` respectively.
+becomes
 
 ```scala
-def visitIdentifier(e: ast.Identifier)(using context: Typer.Context): Type =
-  bindEntityReference(e, resolveUnqualifiedTermIdentifier(e.value, e.site))
+  private def commit(solution: Solver.Solution, obligations: ProofObligations): Unit =
+    for (n, t) <- obligations.inferredType do
+      val u = solution.substitution.reify(t)
+      val v = properties.checkedType.put(n, u)
+      assert(v.map((x) => x == u).getOrElse(true))
+
+      // The cache may have an unchecked type for `n` if it's a declaration whose type has been
+      // inferred (i.e., variable in a match case without ascription).
+      properties.uncheckedType.updateWith(n)((x) => x.map((_) => Memo.Computed(u)))
+
+    for (n, r) <- (obligations.inferredBinding ++ solution.binding) do
+      val s = r.withTypeTransformed((t) => solution.substitution.reify(t)) // ← This line changes.
+      properties.treeToReferredEntity.put(n, s)
+
+    reportBatch(solution.diagnostics.elements)
+    assert(solution.isSound || diagnostics.containsError, "inference failed without diagnostic")
 ```
 
-In this method, we make calls to:
+and
 
-* `resolveUnqualifiedTermIdentifier` to resolve the identifier to a list of possible entities. This step will find all the entities that the identifier can refer to. For example, if the identifier is `f`, it will return all the functions that are named `f`.
-* `bindEntityReference(e: ast.Tree, candidates: List[EntityReference])` to bind the AST node to the resolved entities
-  * if there is no candidates, then the type of `e` is `Type.Error`
-  * if there is a single candidate, then the type of `e` is the type of the candidate. Moreover, it links the AST node to the candidate using the `properties.treeToReferredEntity` map.
-  * if there is more than a single candidate, then a new fresh type variable $\tau$ is created and the AST node is linked to the type variable $\tau$. Moreover, a new `Overload` constraint is added to the obligations to say that the type of `e` is the type of one of the candidates. Also, a constraint is added to say that the type of `e` is $\tau$.
+```scala
+  private def bindEntityReference(
+      e: ast.Tree, candidates: List[symbols.EntityReference]
+  )(using context: Typer.Context): Type =
+    candidates match
+      case Nil =>
+        context.obligations.constrain(e, Type.Error)
+      case pick :: Nil =>
+        properties.treeToReferredEntity.put(e, pick)
+        context.obligations.constrain(e, pick.tpe)
+      case picks =>
+        val t = freshTypeVariable()
+        context.obligations.add(Constraint.Overload(e, picks, t, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t)
+```
 
-Note that there is some useful functions in the `Typer` class that you can use to generate fresh type variables, get the type of an entity, check if a type is a subtype of another, etc.
+becomes
 
-### Scope
+```scala
+  private def bindEntityReference(
+      e: ast.Tree, candidates: List[symbols.EntityReference]
+  )(using context: Typer.Context): Type =
+    candidates match
+      case Nil =>
+        context.obligations.constrain(e, Type.Error)
+      case pick :: Nil =>
+        context.obligations.bind(e, pick) // ← This line changes.
+        context.obligations.constrain(e, pick.tpe)
+      case picks =>
+        val t = freshTypeVariable()
+        context.obligations.add(Constraint.Overload(e, picks, t, Constraint.Origin(e.site)))
+        context.obligations.constrain(e, t)
+```
 
-In programming, the *Scope* of a binding is defined as follows: 
+## Test dependencies
 
-> [The ] scope is "the portion of source code in which a binding of a name with an entity applies".
+The test suite has to compile the generated Scala code for testing, therefore, please make sure that the two commands below work in your shell before starting the lab:
 
-For example, in the following code:
+```bash
+$ scalac -version
+$ scala -version
+```
+
+If you have installed Scala with Coursier, it should be already set up. If you have installed Scala with another method, you should make sure that these commands work.
+
+## Transpiling Alpine to Scala
+
+Like the interpretation and type checking/inference, transpilation is implemented as a AST traversal using `TreeVisitor`.
+In a nutshell, the process consists of walking the AST and, for each node, generate Scala code to produce equivalent semantics.
+
+Most constructs from Alpine have a straightforward equivalent in Scala.
+For example, let's examine how conditional expressions (e.g., `if a then b else c`), which are processed by `visitConditional`:
+
+```scala
+override def visitConditional(n: ast.Conditional)(using context: Context): Unit =
+  context.output ++= "if "
+  n.condition.visit(this)
+  context.output ++= " then "
+  n.successCase.visit(this)
+  context.output ++= " else "
+  n.failureCase.visit(this)
+```
+
+The construction of the Scala program is done by appending strings to a string buffer named `output`, which is part of the context in which the AST traversal takes place.
+
+> In Scala, using a string buffer is more efficient than concatenating many small strings together to construct a large string.
+> You append a new string to the buffer with the operator `++=`.
+> Once it has been constructed, you extract the final by calling `toString` on the buffer.
+> Note that you can extract the contents of the buffer at any time using the same method, which may be useful for debugging in an interactive session or via `println` statements.
+
+The output of visiting a conditional is therefore the following:
+
+```scala
+if <n.condition.visit> then <n.success.visit> else <n.failure.visit>
+```
+
+This code snippet demonstrates the convenience of the visitor pattern.
+One simply has to call the `visit` method of a sub-tree to transpire its contents into the buffer.
+Hence, most transpilation methods, like `visitConditional`, read like flat sequences of relatively straightforward statements.
+
+We provide an incomplete implementation of the `ScalaPrinter` class.
+Your task is to implement transpilation for **pattern matching**, **records**, **narrowing**, and **widening**, performed by methods `visitMatch`, `visitRecord` and `visitAscription`.
+
+In this lab, we, on purpose, let you more freedom about how you implement the transpiler. The representation in Scala of the records is up to you. The only specification is that the generated Scala code should implement correctly the behavior of the Alpine code when run.
+
+But before all of that, a little bit of explanations:
+
+### Built-in features and runtime libraries
+
+The code generated by compilers is not necessarily standalone, and can therefore depend on some libraries. For instance, Scala has its standard library (e.g. `::`, …), C has the `libc` (e.g. `printf`, `strcpy`, [`malloc`](https://github.com/bminor/glibc/tree/master/malloc) …), Java has the `java.lang` package, etc...
+
+Sometimes, some features of the language are implemented in such standard libraries.
+
+For instance, throwing exceptions in C++ with `gcc`:
+
+```cpp
+// Throws an exception
+throw "Division by zero";
+```
+
+is compiled to a call to a runtime function:
+
+```cpp
+// Throws an exception
+__cxa_throw("Division by zero", "char const*", 0);
+```
+
+The details are not important but the idea is that the generated code can depend on _other_ code that is not directly generated by the compiler (but is still compiled at some point, as its own program), to support specific features of the language (here, `__cxa_throw` is a function imported from a library at runtime).
+
+Alpine also has its standard library that will be shipped with the transpiled code to support some features of the language. For example, this library implement `print`, `+`, `@`, ...
+
+To summarize,  The transpiler should generate code and _can_ rely on a runtime library that will be available at runtime to implement some features of the language.
+
+### Issue #1: Scala and Alpine differences
+
+Scala and Alpine are two different languages. One of the crucial differences is the presence of _labels_! In Scala, labels do not exist. In Alpine, they do.
+
+For instance, in Alpine, you can write:
 
 ```swift
-fun f(x: Int) -> Int {
-  let y = 42 {
-    x + y
-  }
-}
-let main = let z = 1 {
-  f(z)
-}
+fun myFun(_ x: Int) -> Int { 5 }
+fun myFun(a x: Int) -> Int { 10 }
+myFun(2) // 5, calls the 1st function
+myFun(a: 2) // 10, calls the 2nd function
 ```
 
-the scope of the binding of `y` is  the body of the `let` binding, so:
+In this case, the two functions are two **different** fucntions.
+
+The same applies to records. In Alpine, you can write:
 
 ```swift
-{
-  x + y
+let p = #point(x: 1, y: 2)
+let main = match p {
+  case #point(1, 2) then print("Unreachable, sorry.") // not a subtype of #point(x: Int, y: Int)
 }
 ```
 
-and the scope ot the binding of `x` is the body of the function `f`, so:
+This means that the translation to Scala cannot be as straightforward than it is for conditional for example. You need to find a way to take these labels into account, and to encode them in some way in the generated Scala code.
+
+### Your task
+
+Your task is to implement the missing implementations of the `visit` function, namely for what is related to **records**, **pattern matching**, **narrowing** and, **widening**. If necessary, complete the runtime library to support these new features.
+
+### Hints
+
+- Check the *provided* code, as you can take inspiration from existing implementations.
+- A record, depending on its arity, is either a `case object` or a `case class`.
+- The Scala `.asInstanceOf[T]` and `.isInstanceOf[T]` methods can be useful.
+- You can take inspiration of the functions treatment for records.
+- For pattern matching, there is a few cases to consider:
 
 ```swift
-{
-  let y = 42 {
-    x + y
-  }
+let p = #point(x: 1, y: 2)
+let xCheck = 1
+let main = match p {
+  case #point(x: xCheck, y: 2) then print("Correct!") // executes
 }
 ```
 
-### Running the type checker
-
-Inside SBT, you can use the `run -t <input file>` command to run the type checker on a file. You can also add the `--type-inference` flag to show the solving part of the type checker (so including the constraints and the solution).
-
-### How is overloading solved?
-
-Let us recall that overloading is the ability to have multiple functions with the same name but different types. For example, in the following code:
+But cases such as:
 
 ```swift
-fun f(x: Int) -> Int { x }
-fun f(x: Float) -> Float { x }
+let p = #point(x: 1, y: 2)
+let xCheck = 1
+let main = match p {
+  case #point(x: xCheck + 1, y: 2) then print("Correct!") // executes
+}
 ```
 
-the function `f` is overloaded. When the type checker encounters a call to `f`, it should resolve the call to one of the two functions. This is what the `Overload` constraint is for.
+are not going to be checked (because of the way the pattern matching is implemented in Scala.)
 
-Overloading is resolved by the `Solver` class. For every `Overload` constraint and their candidates, the solver forks itself and tries to solve the other constraints with each candidate (i.e., type checking the program assuming the candidate is the right one). If one of the forks fails, the solver backtracks and tries with the next candidate. If all the forks fail, the solver reports an error. And if one of the forks succeeds, the solver returns the solution. 
+A way to do it in Scala would be:
 
-If you run the compiler with the `--trace-inference` flag with a piece of code that contains some overload, you will see that the solver tries to solve the constraints with each candidate.
-
-### Memoization
-
-You can see some calls to `memoizedUncheckedType`. Its role is to store the type of a tree node in an *unchecked* map. This means the type is temporary, but not checked yet.
-
-This is used for recursive functions: the type of the function is stored in this map, so that the body can be typechecked while "knowing" the type of the function itself (for possible recursive calls). This is also used for recursive types, but we do not handle them in this lab.
-
-This is also used for memoization, i.e., not recomputing the type of a tree multiple times.
-
-### Hints and inference rules
-
-Below are listed hints about the visit functions you have to implement, along with the inference rules of the alpine type system.
-
-#### `visitRecord(e: ast.Record)`
-
-$$\frac{
-  \Gamma \vdash e_1 : \tau_1 \quad \Gamma e_2 : \tau_  \Gamma \quad \dots \quad \Gamma e_n \quad \Gamma: \tau_n
-}{
-  \char"23 a(a_1: e_1, a_2: e_2, \dots, a_n: e_n): \char"23 a(a_1: \tau_1, a_2: \tau_2, \dots, a_n :\tau_n)
-}$$
-
-where $\char"23 a$ is the record name and $a_1$, …, $a_n$ are the labels.
-
-For each field of the record, you should visit recursively the expression of the field to get field types.
-
-_Note_: Math mode can be buggy on GitHub Markdown if the above rule is not properly displayed. You can download the .html file and open it in your browser to see it properly! Or open the Markdown file inside your editor. All `\char"23` should be displayed as `#`.
-
-#### `visitApplication(e: ast.Application)`
-
-Two constraints should be addeed:
-
-* `Apply`: the application is valid.
-* `e`: should have the type $\tau$
-
-$$
-\frac{
-  \Gamma \vdash f: ((l_1: \tau_1, l_2: \tau_2, \dots, l_n: \tau_n) \to \tau) \quad \Gamma e_1: \tau_1 \quad  \Gamma e_2: \tau_2 \quad \dots \quad \Gamma e_n: \tau_n
-}{
-  \Gamma \vdash f(l_1: e_1, l_2: e_2, \dots, l_n: e_n): \tau
+```scala
+case class Point(x: Int, y: Int)
+val p = Point(1, 2)
+val xCheck = 1
+val main = p match {
+  case Point(`xCheck`, 2) => println("Correct!")
 }
-$$
-
-This means that if $f$ has type $(l_1: \tau_1, l_2: \tau_2, \dots, l_n: \tau_n) \to \tau$, and $e_1$ has type $\tau_1$, $e_2$ has type $\tau_2$, etc., then the application has type $\tau$.
-
-You should get the type of the function and of the labeled arguments. If the output type of the function is not known, you should generate a fresh type variable for it. Otherwise, $\tau$ is the output type of the function.
-
-#### `visitPrefixApplication` / `visitInfixApplication`
-
-The idea is simlar to the `visitApplication` method. Keep in mind that infix and prefix applications do not have labels and their number of arguments is fixed (1 for prefix and 2 for infix).
-
-Prefix applications:
-
-$$
-\frac{
-  \Gamma \vdash f: \tau_1 \to \tau  \quad \Gamma e: \tau_1
-}{
-  \Gamma \vdash f(e): \tau
-}
-$$
-
-Infix applications:
-
-$$
-\frac{
-  \Gamma \vdash f: (\tau_1, \tau_2) \to \tau, e_1: \tau_1, e_2: \tau_2
-}{
-  \Gamma \vdash f(e_1, e_2): \tau
-}
-$$
-
-#### `visitConditional(e: ast.Conditional)`
-
-<div class="hint">
-
-Check the `checkInstanceOf` function.
-
-</div>
-
-The type of a conditional is $\tau$ which is a supertype of the type of the `then` branch and the type of the `else` branch. The condition must be a `Boolean`. Generate fresh variables if needed.
-
-$$
-\frac{
-  \Gamma \vdash e_1: \text{Boolean } \quad \Gamma \vdash e_2: \tau_2 \quad \Gamma \vdash  e_3: \tau_3 \quad \Gamma \vdash  \tau >: \tau_2 \quad \Gamma \vdash  \tau >: \tau_3
-}{
-  \Gamma \vdash \text{if } e_1 \text{ then } e_2 \text{ else } e_3: \tau
-}
-$$
-
-#### `visitLet(e: ast.Let)`
-
-
-$$
-\frac{
-  \Gamma \vdash e: \tau, \,\,\Gamma,x \mapsto e \vdash e_r: \tau_r
-}{
-  \Gamma \vdash \text{let } x: \tau = e \,\{ e_r \}: \tau_r
-}
-$$
-
-You must assign a new scope name using the `assignScopeName` method, and visit the `binding` and the body with this new scope name.
-
-#### `visitLambda(e: ast.Lambda)`
-
-You should assign a new scope name for that lambda and in that scope, you should get the type of the inputs (using `computedUncheckedInputTypes`)
-
-In the same manner as the application, get the output type of the lambda or generate a fresh variable, and add the following constraints:
-
-* `e` should be of type `Type.Arrow`.
-* the body should be a subtype of the output type of the lambda.
-
-$$
-\frac{
-  \Gamma x_1: \tau_1, \ldots, x_n: \tau_n \vdash e <: \tau
-}{
-  \Gamma : (l_1: x_1: \tau_1, \ldots, l_n: x_n: \tau_n) \,{\color{green} \to \tau} \,\{ e \} : ((l_1: \tau_1, \ldots, l_n: \tau_n) \to \tau)
-}
-$$
-
-where the first ${\color{green} \to \tau}$ is optional.
-
-#### `visitParenthesizedExpression`
-
-$$
-\frac{\Gamma \vdash e : \tau}{\Gamma \vdash (e): \tau}
-$$
-
-#### `evaluateTypeTree`
-
-When encoutering a specified type, you should call `evaluateTypeTree`.
-
-#### `visitAscribedExpression(e: ast.AscribedExpression)`
-
-You should evaluate the `ascription` field of the `AscribedExpression` using `evaluateTypeTree` and depending on the ascription. Then add needed constraints, depending on the ascription sort:
-
-<!-- * if it's a widening ascription, the expression type should be a subtype of the type given in the ascription.
-* if it's a narrowing unconditionally ascription, use `checkedTypeEnsuringConvertible` to check that the type of the expression is a subtype of the type given in the ascription, and return the type given in the ascription.
-* if it's a narrowing ascription, use `checkedTypeEnsuringConvertible` to check that the type of the expression is a subtype of the type given in the ascription, and return the optional type that corresponds to it. -->
-
-$$
-\frac{\Gamma \vdash e <: \tau}{\Gamma \vdash e \, @ \,\tau : \tau}
-$$
-$$
-\frac{\Gamma \vdash e :> \tau}{\Gamma \vdash e \, @! \,\tau : \tau} \text{ while ensuring convertibility}
-$$
-$$
-\frac{\Gamma \vdash}{\Gamma \vdash e \, @? \,\tau : \text{Option}[\tau]}
-$$
-
-#### Meta-types
-
-Metatypes are the types of types. For example, in an alpine program, the type `Int` in `let x : Int = 42 { ... }` has the type `MetaType[Int]`. This is useful to type check an expression where a type is expected, for example in a type ascription or arrow types.
-
-#### `visitTypeIdentifier(e: ast.TypeIdentifier)`
-
-You should lookup the type identifier in the current scope:
-
-1. if there is no type with that name, return `Type.Error` and report an error.
-2. if there is a single type with that name, return the type corresponding to the meta-type (`Type.Meta`).
-3. if there is more than a single type with that name, return a `Type.Error` and report an ambiguous use of the type.
-
-<div class="hint">
-
-Check the provided functions.
-
-</div>
-
-#### `visitRecordType`
-
-You should return the type of the record type, which is a `Type.Record` with proper fields.
-
-$$
-\frac{
-  \Gamma \vdash \tau_1: \text{Meta}[\text{Labeled}] \quad \ldots \quad \Gamma \tau_n: \text{Meta}[\text{Labeled}] \quad \Gamma\tau_r: \text{Meta}[\tau_r]
-}{
-  \Gamma \vdash \char"23 a(\tau_1, \ldots, \tau_n) \to \tau_r
-}
-$$
-
-Note that $\tau_1$, …, $\tau_n$ are labelled types.
-
-#### `visitArrow`
-
-You should return the type of the arrow type, which is a `Type.Arrow` with proper inputs and output.
-
-$$
-\frac{
-  \Gamma \vdash \tau_1: \text{Meta}[\text{Labeled}] \quad \ldots \quad \Gamma \tau_n: \text{Meta}[\text{Labeled}] \quad \Gamma\tau_r: \text{Meta}[\tau_r]
-}{
-  \Gamma \vdash (\tau_1, \ldots, \tau_n) \to \tau_r
-}
-$$
-
-Note that $\tau_1$, …, $\tau_n$ are labelled types.
-
-#### `visitParenthesizedType`
-
-$$
-\frac{
-  \Gamma \vdash \tau: \text{Meta}[\tau_{in}]
-}{
-  \Gamma \vdash (\tau) \to \text{Meta}[\tau_{in}]
-}
-$$
-
-#### `visitRecordPattern`
-
-On the same principle as the `visitRecord` method and `visitValuePattern`, you should add a constraint for the type of the pattern.
-
-$$
-\frac{\Gamma \vdash}{
-  \Gamma \vdash \char"23 a(l_1: p_1, \ldots, l_n: p_n): \char"23 a(l_1: \tau_1, \ldots, l_n: \tau_n)
-}
-$$
-
-where $\char"23 a$ is the record name and $l_1$, …, $l_n$ are the labels.
-
-#### `visitWildcard`
-
-$$
-\frac{\Gamma \vdash}{
-  \Gamma \vdash \_ : \tau
-}
-$$
-
-#### `visitFunction`
-
-$$
-\frac{
-  \Gamma, x_1: \tau_1, \ldots, x_n: \tau_n \vdash e <: \tau
-}{
-  \Gamma \vdash (\text{fun } f(x_1: \tau_1, \ldots, x_n: \tau_n) \to \tau \{ e \}) : (l_1: x_1: \tau_1, \ldots, l_n: x_n: \tau_n) \to \tau
-}
-$$
-
-You should get the unchecked type of the function and memoize it. You should then type check the body and it must be a subtype of the output type of the function.
-
-#### `visitSum`
-
-The function is provided, but here is the inference rule:
-
-$$
-\frac{
-  \Gamma \vdash e: \tau_i
-}{
-  \Gamma \vdash e: \tau_1 | \tau_2 | \ldots | \tau_i | \dots | \tau_n
-}
-$$
-
-#### `visitSelection`
-
-A selection can be performed on a record with an identifier or an integer. You should add a `Member` constraint.
-
-For the integer selector:
-
-$$
-\frac{
-  \Gamma \vdash e: \char"23 a(l_1: \tau_1, \dots, l_n:\tau_n)
-}{
-  \Gamma \vdash e.i: \tau_i
-}
-$$
-
-For the identifier selector:
-
-$$
-\frac{
-  \Gamma \vdash e: \char"23 a(l_1: \tau_1, \dots, l_n:\tau_n)
-}{
-  \Gamma \vdash e.l_i: \tau_i
-}
-$$
+```
