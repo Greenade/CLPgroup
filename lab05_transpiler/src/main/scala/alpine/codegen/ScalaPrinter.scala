@@ -114,7 +114,12 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   /** Returns a string uniquely identifiyng `t` for use as a discriminator in a mangled name. */
   private def discriminator(t: symbols.Type.Record): String =
-    ???
+    val b = StringBuilder("R")
+    b ++= t.identifier
+    for i <- t.fields do
+      b ++= i.label.getOrElse("")
+      b ++= discriminator(i.value)
+    b.toString
 
   /** Returns a string uniquely identifiyng `t` for use as a discriminator in a mangled name. */
   private def discriminator(t: symbols.Type.Arrow): String =
@@ -226,7 +231,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
     /* TODO : possibly call emitRecord* functions ? */
-    ???
+    context.output ++= n.identifier.substring(1)
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
     n.qualification.visit(this)
@@ -266,7 +271,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =
     n.scrutinee.visit(this)
-    context.output ++= "match { \n"
+    context.output ++= " match { \n"
     context.indentation += 1
     n.cases.foreach(c => c.visit(this))
     context.indentation -= 1
@@ -348,10 +353,15 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     unexpectedVisit(n)
 
   override def visitValuePattern(n: ast.ValuePattern)(using context: Context): Unit =
-    ???
+    n.value.visit(this)
 
   override def visitRecordPattern(n: ast.RecordPattern)(using context: Context): Unit =
-    ???
+    context.output ++= n.identifier + "("
+    context.output.appendCommaSeparated(n.fields) { (o, a) => 
+      a.value.visit(this)
+      /* TODO : how to handle optional labels ? we don't have that in Scala... actually what label is in a record */
+    }
+    context.output ++= ") "
 
   override def visitWildcard(n: ast.Wildcard)(using context: Context): Unit =
     context.output ++= "_"
