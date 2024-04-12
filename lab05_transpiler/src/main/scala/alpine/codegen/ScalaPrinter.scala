@@ -348,7 +348,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     //  case Typecast.Narrow => 
     //  case Typecast.NarrowUnconditionally =>
 
-    transpiledType(n.ascription.tpe)
+    context.output ++= transpiledType(n.ascription.tpe)
     context.output ++= "] "
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
