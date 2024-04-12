@@ -285,6 +285,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     context.indentation += 1
     n.body.visit(this)
     context.indentation -= 1
+    context.output ++= "\n"
     // TODO : to be tested 
 
   override def visitLet(n: ast.Let)(using context: Context): Unit =
