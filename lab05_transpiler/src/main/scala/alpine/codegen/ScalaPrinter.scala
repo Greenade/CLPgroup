@@ -45,7 +45,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
       o ++= transpiledType(a.value) 
       n += 1
     }
-    context.output ++= ")"
+    context.output ++= ")\n"
 
   /** Writes the Scala declaration of `t`, which is not a singleton, in `context`. */
   private def emitNonSingletonRecord(t: symbols.Type.Record)(using context: Context): Unit =
