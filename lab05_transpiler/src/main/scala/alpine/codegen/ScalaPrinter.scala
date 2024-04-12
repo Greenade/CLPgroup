@@ -36,9 +36,14 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
       context.output ++= "case object "
 
     context.output ++= transpiledType(t) + "("
+    var n = 0
     context.output.appendCommaSeparated(t.fields) { (o, a) =>
-      // TODO : labels ? 
+      val label = a.label match
+        case Some(label) => label
+        case None => "_" + n
+      o ++= label + ": "
       o ++= transpiledType(a.value) 
+      n += 1
     }
     context.output ++= ")"
 
