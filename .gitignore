@@ -41,3 +41,6 @@ classes/
 
 # Visual Studio Code
 .vscode
+
+#build properties
+build.properties
