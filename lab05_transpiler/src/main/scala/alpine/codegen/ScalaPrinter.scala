@@ -29,8 +29,18 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   /** Writes the Scala declaration of `t` in `context`. */
   private def emitRecord(t: symbols.Type.Record)(using context: Context): Unit =
- 
-      ??? 
+    val arity = t.fields.length
+    if arity > 0 then
+      context.output ++= "case class "
+    else
+      context.output ++= "case object "
+
+    context.output ++= transpiledType(t) + "("
+    context.output.appendCommaSeparated(t.fields) { (o, a) =>
+      // TODO : labels ? 
+      o ++= transpiledType(a.value) 
+    }
+    context.output ++= ")"
 
   /** Writes the Scala declaration of `t`, which is not a singleton, in `context`. */
   private def emitNonSingletonRecord(t: symbols.Type.Record)(using context: Context): Unit =
@@ -115,7 +125,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   /** Returns a string uniquely identifiyng `t` for use as a discriminator in a mangled name. */
   private def discriminator(t: symbols.Type.Record): String =
     val b = StringBuilder("R")
-    b ++= t.identifier
+    b ++= t.identifier.substring(1) // Remove "#""
     for i <- t.fields do
       b ++= i.label.getOrElse("")
       b ++= discriminator(i.value)
@@ -231,7 +241,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
     /* TODO : possibly call emitRecord* functions ? */
-    context.output ++= n.identifier.substring(1)
+    context.output ++= transpiledType(n.tpe)
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
     n.qualification.visit(this)
@@ -275,15 +285,16 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     context.indentation += 1
     n.cases.foreach(c => c.visit(this))
     context.indentation -= 1
-    context.output ++= "}\n"
+    context.output ++= "\n}\n"
     // TODO : to be tested
 
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
     context.output ++= "case "
     n.pattern.visit(this)
-    context.output ++= "=> "
+    context.output ++= " => "
     context.indentation += 1
     n.body.visit(this)
+    context.output ++= "\n"
     context.indentation -= 1
     // TODO : to be tested 
 
@@ -356,7 +367,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     n.value.visit(this)
 
   override def visitRecordPattern(n: ast.RecordPattern)(using context: Context): Unit =
-    context.output ++= n.identifier + "("
+    context.output ++= transpiledType(n.tpe) + "("
     context.output.appendCommaSeparated(n.fields) { (o, a) => 
       a.value.visit(this)
       /* TODO : how to handle optional labels ? we don't have that in Scala... actually what label is in a record */
