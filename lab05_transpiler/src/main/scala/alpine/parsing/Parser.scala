@@ -200,7 +200,9 @@ class Parser(val source: SourceFile):
   private[parsing] def infixExpressionHelper(lhsGiven : Expression, minPrecedence: Int = ast.OperatorPrecedence.min): Expression =
     def loop1(lhs: Expression): Expression =
       peek match
-        case Some(Token(K.Operator, _)) =>
+        case Some(t) =>
+          if (!t.kind.isOperatorPart) then return lhs
+
           val (opId, opSite) = operatorIdentifier()
           val lookahead = opId.get
           if lookahead.precedence < minPrecedence then 
@@ -215,14 +217,15 @@ class Parser(val source: SourceFile):
 
     @tailrec def loop2(rhs: Expression, op: OperatorIdentifier): Expression = 
       peek match
-        case Some(Token(K.Operator, _)) =>
+        case Some(t) =>
+          if (!t.kind.isOperatorPart) then return rhs
+
           val backup = snapshot()
           val lookahead = operatorIdentifier()._1.get
+          restore(backup)
           if lookahead.precedence <= op.precedence then 
-            restore(backup)
             rhs
           else
-            restore(backup)
             val additional = if lookahead.precedence > op.precedence then 1 else 0
             val newRHS = infixExpressionHelper(rhs, op.precedence + additional)
             loop2(newRHS, op)
