@@ -592,7 +592,7 @@ class Parser(val source: SourceFile):
     if arrow then
       val l = parenthesizedLabeledList(tpe)
       take(K.Arrow)
-      Arrow(l, tpe(), l.head.site.extendedTo(lastBoundary))
+      Arrow(l, tpe(), if l.isEmpty then emptySiteAtLastBoundary else l.head.site.extendedTo(lastBoundary))
     else
       ParenthesizedType(inParentheses(tpe), emptySiteAtLastBoundary)
   
