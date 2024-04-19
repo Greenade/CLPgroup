@@ -304,7 +304,16 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
 
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
     context.output ++= "case "
-    n.pattern.visit(this)
+    n.pattern match
+      case ErrorTree(site) => n.pattern.visit(this)
+      case Binding(identifier, ascription, initializer, site) =>
+        val temp = context.output.length()
+        n.pattern.visit(this)
+        context.output.delete(temp, temp + 4)
+      case ValuePattern(value, site) => n.pattern.visit(this)
+      case RecordPattern(identifier, fields, site) => n.pattern.visit(this)
+      case Wildcard(site) => n.pattern.visit(this)
+    
     context.output ++= " => "
     context.indentation += 1
     n.body.visit(this)
