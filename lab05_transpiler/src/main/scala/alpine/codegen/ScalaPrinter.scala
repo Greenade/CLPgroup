@@ -366,13 +366,14 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   )(using context: Context): Unit =
     val transpiledSome = discriminator(Type.Record("#some", List(alpine.symbols.Type.Labeled(None, alpine.symbols.Type.Any))))
     val transpiledNone = discriminator(Type.Record("#none", List()))
+    val transpiledAscription = transpiledType(n.ascription.tpe)
     n.operation match
       case Typecast.Narrow => 
-        context.output ++= "alpine_rt.narrow("
+        context.output ++= "alpine_rt.narrow[" + transpiledAscription + "," + transpiledType(alpine.symbols.Type.Any) + "]("
         n.inner.visit(this)
         context.output ++= ","
         context.output ++= "{(a) => " + transpiledSome + "(a.asInstanceOf["
-        context.output ++= transpiledType(n.ascription.tpe)
+        context.output ++= transpiledAscription
         context.output ++= "])}, "
         context.output ++= transpiledNone
         context.output ++= ")"
