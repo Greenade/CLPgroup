@@ -41,15 +41,19 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     else
       context.output ++= "case object "
 
-    context.output ++= transpiledType(t) + "("
-    var n = 0
-    context.output.appendCommaSeparated(t.fields) { (o, a) =>
-      val label = "$" + n
-      o ++= label + ": "
-      o ++= transpiledType(a.value) 
-      n += 1
-    }
-    context.output ++= ")\n"
+    context.output ++= discriminator(t) // We don't need to get the transpiled type
+
+    if arity > 0 then
+      context.output ++= "("
+      var n = 0
+      context.output.appendCommaSeparated(t.fields) { (o, a) =>
+        val label = "$" + n
+        o ++= label + ": "
+        o ++= transpiledType(a.value) 
+        n += 1
+      }
+      context.output ++= ")"
+    context.output ++= "\n"
 
   /** Writes the Scala declaration of `t`, which is not a singleton, in `context`. */
   private def emitNonSingletonRecord(t: symbols.Type.Record)(using context: Context): Unit =
@@ -87,6 +91,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
       context.registerUse(t)
       val d = discriminator(t)
       if t.fields.isEmpty then s"${d}.type" else d
+      //d
 
   /** Returns the transpiled form of `t`. */
   private def transpiledArrow(t: symbols.Type.Arrow)(using context: Context): String =
@@ -407,24 +412,29 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     n.value.visit(this)
 
   override def visitRecordPattern(n: ast.RecordPattern)(using context: Context): Unit =
-    context.output ++= transpiledType(n.tpe) + "("
-    context.output.appendCommaSeparated(n.fields) { (o, a) => 
-      val temp = context.output.length()
-      a.value match
-        case ErrorTree(site) =>
-          a.value.visit(this) 
-        case Binding(identifier, ascription, initializer, site) =>
-          a.value.visit(this)
-          context.output.delete(temp, temp + 4)
-        case ValuePattern(value, site) =>
-          a.value.visit(this)
-        case RecordPattern(identifier, fields, site) =>
-          a.value.visit(this)
-        case Wildcard(site) =>
-          a.value.visit(this)
-      
-    }
-    context.output ++= ") "
+    //context.output ++= discriminator(n.tpe)
+    val arity = n.fields.size
+    if arity == 0 then
+      context.output ++= "_ : "
+    context.output ++= transpiledType(n.tpe)
+    if arity > 0 then
+      context.output ++= "("
+      context.output.appendCommaSeparated(n.fields) { (o, a) => 
+        val temp = context.output.length()
+        a.value match
+          case ErrorTree(site) =>
+            a.value.visit(this) 
+          case Binding(identifier, ascription, initializer, site) =>
+            a.value.visit(this)
+            context.output.delete(temp, temp + 4)
+          case ValuePattern(value, site) =>
+            a.value.visit(this)
+          case RecordPattern(identifier, fields, site) =>
+            a.value.visit(this)
+          case Wildcard(site) =>
+            a.value.visit(this)
+      }
+      context.output ++= ") "
 
   override def visitWildcard(n: ast.Wildcard)(using context: Context): Unit =
     context.output ++= "_"
