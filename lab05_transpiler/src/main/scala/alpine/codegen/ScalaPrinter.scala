@@ -11,6 +11,11 @@ import scala.collection.mutable
 import alpine.symbols.Type
 import alpine.symbols.Type.Bool
 import alpine.ast.Typecast
+import alpine.ast.ErrorTree
+import alpine.ast.Binding
+import alpine.ast.ValuePattern
+import alpine.ast.RecordPattern
+import alpine.ast.Wildcard
 // import scala_rt.rt
 
 /** The transpilation of an Alpine program to Scala. */
@@ -300,7 +305,6 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
     context.output ++= "case "
     n.pattern.visit(this)
-    context.output.dropRight(4)
     context.output ++= " => "
     context.indentation += 1
     n.body.visit(this)
@@ -345,16 +349,10 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    n.inner.visit(this)
-    context.output ++= ".asInstanceOf["
-    /* TODO later : does the operation affect anything ? */
-    n.operation match
-    //  case Typecast.Widen =>
-    //  case Typecast.Narrow => narrow(n.ascription.tpe, n.inner.tpe)
-    //  case Typecast.NarrowUnconditionally => narrowUnconditionally(n.ascription.tpe)
-     case _ =>
-      context.output ++= transpiledType(n.ascription.tpe)
-      context.output ++= "] "
+        n.inner.visit(this)
+        context.output ++= ".asInstanceOf["
+        context.output ++= transpiledType(n.ascription.tpe)
+        context.output ++= "] "
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -380,8 +378,20 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitRecordPattern(n: ast.RecordPattern)(using context: Context): Unit =
     context.output ++= transpiledType(n.tpe) + "("
     context.output.appendCommaSeparated(n.fields) { (o, a) => 
-      a.value.visit(this)
-      /* TODO : how to handle optional labels ? we don't have that in Scala... actually what label is in a record */
+      val temp = context.output.length()
+      a.value match
+        case ErrorTree(site) =>
+          a.value.visit(this) 
+        case Binding(identifier, ascription, initializer, site) =>
+          a.value.visit(this)
+          context.output.delete(temp, temp + 4)
+        case ValuePattern(value, site) =>
+          a.value.visit(this)
+        case RecordPattern(identifier, fields, site) =>
+          a.value.visit(this)
+        case Wildcard(site) =>
+          a.value.visit(this)
+      
     }
     context.output ++= ") "
 

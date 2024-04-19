@@ -21,8 +21,7 @@ class TranspilerTests extends munit.FunSuite:
     for t <- tests do
       test(t.name) {
         val r = runner.get
-        val alpineTestFilename = ("Input" + t.name + ".al"). filter(c => !c.isWhitespace)
-
+        val alpineTestFilename = "Input.al" + t.name.filter(c => !c.isWhitespace) + ".al"
         val inputAlpineFilePath = r.writeAlpineFile(alpineTestFilename, t.input.mkString(lineSeparator))
         val outputScalaFile = r.runAlpineTranspiler(inputAlpineFilePath)
         // println(outputScalaFile)
@@ -44,7 +43,7 @@ class TranspilerTests extends munit.FunSuite:
     runner.get.compileLibrary(List("lib"))
 
   override def afterAll(): Unit =
-    // runner.foreach( _ => ())
-    runner.foreach(_.delete)
+    runner.foreach(_ => {})
+    // runner.foreach(_.delete)
 
   runTestsFromFile(inputFileAlpineTests)
