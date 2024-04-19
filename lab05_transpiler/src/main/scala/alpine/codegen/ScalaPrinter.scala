@@ -16,6 +16,7 @@ import alpine.ast.Binding
 import alpine.ast.ValuePattern
 import alpine.ast.RecordPattern
 import alpine.ast.Wildcard
+import alpine.symbols.Type.Labeled
 // import scala_rt.rt
 
 /** The transpilation of an Alpine program to Scala. */
@@ -363,21 +364,17 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    // n.inner.visit(this)
-    // context.output ++= ".asInstanceOf["
-    /* TODO later : does the operation affect anything ? */
+    val transpiledSome = discriminator(Type.Record("#some", List(alpine.symbols.Type.Labeled(None, alpine.symbols.Type.Any))))
+    val transpiledNone = discriminator(Type.Record("#none", List()))
     n.operation match
-    //  case Typecast.Widen =>
       case Typecast.Narrow => 
-      // narrow(n.ascription.tpe, n.inner.tpe)
         context.output ++= "alpine_rt.narrow("
         n.inner.visit(this)
         context.output ++= ","
-        // context.output ++= transpiledType(n.inner.tpe)
-        context.output ++= "{(a) => Some(a.asInstanceOf["
+        context.output ++= "{(a) => " + transpiledSome + "(a.asInstanceOf["
         context.output ++= transpiledType(n.ascription.tpe)
         context.output ++= "])}, "
-        context.output ++= "None"
+        context.output ++= transpiledNone
         context.output ++= ")"
       case Typecast.NarrowUnconditionally =>
         context.output ++= "alpine_rt.narrowUnconditionally("
