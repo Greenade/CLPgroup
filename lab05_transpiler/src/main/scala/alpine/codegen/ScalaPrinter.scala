@@ -345,16 +345,32 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    n.inner.visit(this)
-    context.output ++= ".asInstanceOf["
+    // n.inner.visit(this)
+    // context.output ++= ".asInstanceOf["
     /* TODO later : does the operation affect anything ? */
     n.operation match
     //  case Typecast.Widen =>
-    //  case Typecast.Narrow => narrow(n.ascription.tpe, n.inner.tpe)
-    //  case Typecast.NarrowUnconditionally => narrowUnconditionally(n.ascription.tpe)
-     case _ =>
-      context.output ++= transpiledType(n.ascription.tpe)
-      context.output ++= "] "
+      case Typecast.Narrow => 
+      // narrow(n.ascription.tpe, n.inner.tpe)
+        context.output ++= "alpine_rt.narrow("
+        n.inner.visit(this)
+        context.output ++= ","
+        // context.output ++= transpiledType(n.inner.tpe)
+        context.output ++= "{(a) => Some(a.asInstanceOf["
+        context.output ++= transpiledType(n.ascription.tpe)
+        context.output ++= "])}, "
+        context.output ++= "None"
+        context.output ++= ")"
+      case Typecast.NarrowUnconditionally =>
+        context.output ++= "alpine_rt.narrowUnconditionally("
+        n.inner.visit(this)
+        context.output ++=")"
+
+      case _ =>
+        n.inner.visit(this)
+        context.output ++= ".asInstanceOf["
+        context.output ++= transpiledType(n.ascription.tpe)
+        context.output ++= "] "
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
