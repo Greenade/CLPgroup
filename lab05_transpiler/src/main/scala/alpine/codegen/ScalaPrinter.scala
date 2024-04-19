@@ -247,6 +247,11 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
     /* TODO : possibly call emitRecord* functions ? */
     context.output ++= transpiledType(n.tpe)
+    context.output ++= "("
+    context.output.appendCommaSeparated(n.fields) { (o, a) =>
+      a.value.visit(this)
+    }
+    context.output ++= ")"
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
     n.qualification.visit(this)
@@ -296,6 +301,7 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
     context.output ++= "case "
     n.pattern.visit(this)
+    context.output.dropRight(4)
     context.output ++= " => "
     context.indentation += 1
     n.body.visit(this)
