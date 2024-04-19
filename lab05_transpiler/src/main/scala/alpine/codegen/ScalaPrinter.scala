@@ -11,6 +11,7 @@ import scala.collection.mutable
 import alpine.symbols.Type
 import alpine.symbols.Type.Bool
 import alpine.ast.Typecast
+// import scala_rt.rt
 
 /** The transpilation of an Alpine program to Scala. */
 final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrinter.Context, Unit]:
@@ -349,13 +350,13 @@ final class ScalaPrinter(syntax: TypedProgram) extends ast.TreeVisitor[ScalaPrin
     n.inner.visit(this)
     context.output ++= ".asInstanceOf["
     /* TODO later : does the operation affect anything ? */
-    //n.operation match
+    n.operation match
     //  case Typecast.Widen =>
-    //  case Typecast.Narrow => 
-    //  case Typecast.NarrowUnconditionally =>
-
-    context.output ++= transpiledType(n.ascription.tpe)
-    context.output ++= "] "
+    //  case Typecast.Narrow => narrow(n.ascription.tpe, n.inner.tpe)
+    //  case Typecast.NarrowUnconditionally => narrowUnconditionally(n.ascription.tpe)
+     case _ =>
+      context.output ++= transpiledType(n.ascription.tpe)
+      context.output ++= "] "
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
