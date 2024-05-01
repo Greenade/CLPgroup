@@ -88,10 +88,12 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitBooleanLiteral(n: BooleanLiteral)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = ???
+  def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = 
+    a.output ++= IConst(n.value.toInt).mkString // really not sure, just starting somewhere
 
   /** Visits `n` with state `a`. */
-  def visitFloatLiteral(n: FloatLiteral)(using a: Context): Unit = ???
+  def visitFloatLiteral(n: FloatLiteral)(using a: Context): Unit = 
+    a.output ++= FConst(n.value.toFloat).mkString // really not sure, just starting somewhere
 
   /** Visits `n` with state `a`. */
   def visitStringLiteral(n: StringLiteral)(using a: Context): Unit = ???
