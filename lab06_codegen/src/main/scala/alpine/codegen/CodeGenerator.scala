@@ -48,10 +48,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
           FSub
         )
       ),*/
-      MainFunction(
-        c.instructions.toList,
-        Some(F32)
-      )
+      //c.generateFunctionList(),
+      c.generateMain()
+      
     )
   )
 
@@ -80,11 +79,11 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = 
-    a.output ++= IConst(n.value.toInt).mkString // really not sure, just starting somewhere
+    a.addInstruction(IConst(n.value.toInt))
 
   /** Visits `n` with state `a`. */
   def visitFloatLiteral(n: FloatLiteral)(using a: Context): Unit = 
-    a.output ++= FConst(n.value.toFloat).mkString // really not sure, just starting somewhere
+    a.addInstruction(FConst(n.value.toFloat)) 
 
   /** Visits `n` with state `a`. */
   def visitStringLiteral(n: StringLiteral)(using a: Context): Unit = ???
@@ -176,6 +175,13 @@ object CodeGenerator:
     def output: StringBuilder = _output
 
     val instructions = mutable.ListBuffer[Instruction]()
+
+    def generateMain(): MainFunction = MainFunction(
+        instructions.toList//,
+        //Some(F32) // what is the return type of the main function?
+      )
+
+    def generateFunctionList(): List[FunctionDefinition] = ???
 
     def addInstruction(i: Instruction): Unit = instructions += i
 
