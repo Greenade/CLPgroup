@@ -6,6 +6,7 @@ import alpine.wasm.WasmTree._
 import alpine.ast._
 import alpine.wasm.Wasm
 import scala.collection.mutable
+import scala.collection.immutable.HashMap
 
 /** The transpilation of an Alpine program to Scala. */
 final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGenerator.Context, Unit]:
@@ -60,13 +61,43 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitLabeled[T <: Tree](n: Labeled[T])(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitBinding(n: Binding)(using a: Context): Unit = ???
+  def visitBinding(n: Binding)(using a: Context): Unit = 
+    /* Create stack space */
+    val tpe: WasmType = ???
+    a.pushLocal(n.identifier, tpe)
+
+    /* Evaluate the rhs of the binding */
+    n.initializer match
+      case Some(e) => e.visit(this)
+      case _ => 
+
+    /* Assign local value */
+    //a.addInstruction(LocalSet())
+
+    ???
 
   /** Visits `n` with state `a`. */
   def visitTypeDeclaration(n: TypeDeclaration)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitFunction(n: ast.Function)(using a: Context): Unit = ???
+  def visitFunction(n: ast.Function)(using a: Context): Unit = {
+    /* TODO : visit the body recursively and register all bindings and lets
+     * through the context state as locals. We refer to those locals on the fly while
+     * visiting the body recusrively.
+     */
+
+     n.body.visit(this)
+
+     /* TODO : if everything has been done right, we can get through the context the set of
+      * locals registered so far, and create our final FunctionDefinition */
+
+    val name = n.identifier
+    val params = ???
+    val locals = a.allLocals().sortBy(_.position).map(_.tpe)
+    val returnType = ???
+    val body = ??? // TODO : ok, how do we get the list of instructions
+    FunctionDefinition(name, params, locals, returnType, body)
+  }
 
   /** Visits `n` with state `a`. */
   def visitParameter(n: Parameter)(using a: Context): Unit = ???
@@ -180,6 +211,22 @@ object CodeGenerator:
         instructions.toList//,
         //Some(F32) // what is the return type of the main function?
       )
+
+    private var localIdx = 0
+    private val locals = mutable.HashMap[String, Local]()
+
+    def pushLocal(name: String, tpe: WasmType): Unit = 
+      locals.addOne(name, Local(name, tpe, localIdx))
+      localIdx += 1
+
+    def getLocal(name: String): Option[Local] =
+      locals.get(name)
+
+    def allLocals(): List[Local] = locals.toList.map(_._2)
+
+    def clearLocals(): Unit =
+      locals.clear()
+      localIdx = 0
 
     def generateFunctionList(): List[FunctionDefinition] = ???
 
