@@ -14,6 +14,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   /** The program being evaluated. */
   private given TypedProgram = syntax
 
+  given c: Context = Context()
+    syntax.declarations.foreach(_.visit(this))
+
   /** Returns a WebAssembly program equivalent to `syntax`. */
   /** THIS IS AN EXAMPLE MODULE! */
   def compile(): Module = Module(
@@ -25,7 +28,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       ImportMemory("api", "mem", 100)
     ),
     List(
-      FunctionDefinition("heap-test", body =
+      /*FunctionDefinition("heap-test", body =
         List(
           IConst(0),
           IConst(0xdeadbeef),
@@ -44,21 +47,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
           LocalGet(1),
           FSub
         )
-      ),
+      ),*/
       MainFunction(
-        List(
-          IConst(1),
-          IConst(2),
-          IAdd,
-          Call("print"),
-          Call("heap-test"),
-          Call("local-test"),
-          Call("fprint"),
-          IConst(0x41),
-          Call("print-char"),
-
-          FConst(42) // Return
-        ),
+        c.instructions.toList,
         Some(F32)
       )
     )
@@ -183,6 +174,10 @@ object CodeGenerator:
 
     /** The (partial) result of the transpilation. */
     def output: StringBuilder = _output
+
+    val instructions = mutable.ListBuffer[Instruction]()
+
+    def addInstruction(i: Instruction): Unit = instructions += i
 
     /** `true` iff the transpiler is processing top-level symbols. */
     private var _isTopLevel = true
