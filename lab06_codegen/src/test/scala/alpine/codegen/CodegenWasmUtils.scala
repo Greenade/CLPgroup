@@ -73,8 +73,8 @@ object CodegenWasmUtils:
         val parsed = parsing.Parser(source).program()
         val typed = { val typer = typing.Typer(); typer.check(parsed) }
         val compiled = codegen.CodeGenerator(typed).compile()
-        val watfileName = appendWatExtension("output")
-        val wasmfileName = appendWasmExtension("output")
+        val watfileName = appendWatExtension(inputFile.toString())
+        val wasmfileName = appendWasmExtension(inputFile.toString())
         val watfile = tmpDir.resolve(watfileName)
         val wasmfile = tmpDir.resolve(wasmfileName)
         Wasm.writeToFile(watfile.toString(), compiled)

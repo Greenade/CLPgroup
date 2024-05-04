@@ -21,7 +21,8 @@ class CodegenWasmTests extends munit.FunSuite:
     for t <- tests do
       test(t.name) {
         val r = runner.get
-        val alpineTestFilename = "Input.al"
+        //val alpineTestFilename = "Input.al"
+        val alpineTestFilename = t.name.filter(!_.isWhitespace) + ".al"
         val inputAlpineFilePath = r.writeAlpineFile(alpineTestFilename, t.input.mkString(lineSeparator))
         val outputScalaFile = r.runAlpineCompiler(inputAlpineFilePath)
         val outputOfScala = outputScalaFile.flatMap(outputScalaFile => r.run(outputScalaFile).map(_.replace("\r\n", "\n")))
@@ -39,6 +40,7 @@ class CodegenWasmTests extends munit.FunSuite:
     runner = Some(CodegenWasmUtils.Runner())
 
   override def afterAll(): Unit =
-    runner.foreach(_.delete)
+    //runner.foreach(_.delete)
+    runner.foreach(_)
 
   runTestsFromFile(inputFileAlpineTests)
