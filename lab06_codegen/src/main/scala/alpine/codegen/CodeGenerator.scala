@@ -112,7 +112,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitParameter(n: Parameter)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitIdentifier(n: Identifier)(using a: Context): Unit = ???
+  def visitIdentifier(n: Identifier)(using a: Context): Unit = 
+    a.pushLocal(n.value, I32)
+    a.addInstruction(LocalSet(a.getLocal(n.value).get.position))
 
   /** Visits `n` with state `a`. */
   def visitBooleanLiteral(n: BooleanLiteral)(using a: Context): Unit = 
