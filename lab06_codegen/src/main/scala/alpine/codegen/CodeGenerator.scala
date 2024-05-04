@@ -121,8 +121,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitIdentifier(n: Identifier)(using a: Context): Unit = 
-    a.pushLocal(n.value, I32)
-    a.addInstruction(LocalSet(a.getLocal(n.value).get.position))
+    a.addInstruction(LocalGet(a.getLocal(n.value).get.position))
 
   /** Visits `n` with state `a`. */
   def visitBooleanLiteral(n: BooleanLiteral)(using a: Context): Unit = 
@@ -274,10 +273,10 @@ object CodeGenerator:
     def popIfBlock(): List[Instruction] = ifBlockInstructions.remove(ifBlockInstructions.size-1).toList
 
     def generateMain(): MainFunction = 
-      val instr = funcInstructions.toList
-      println(instr.toString())
       MainFunction(
-        instr,
+        List(
+          Call("topLevel")
+        ),
         None
         //Some(I32) // what is the return type of the main function ?
       )
@@ -301,7 +300,17 @@ object CodeGenerator:
     val functions = mutable.ListBuffer[FunctionDefinition]()
     def addFunctionDefinition(f: FunctionDefinition): Unit = functions += f
 
-    def generateFunctionList(): List[FunctionDefinition] = functions.toList
+    def generateFunctionList(): List[FunctionDefinition] = 
+      val name = "topLevel"
+      val params = Nil
+      val locals = allLocals().sortBy(_.position).map(_.tpe)
+      val returnType = None
+      val body = funcInstructions.toList
+      clearFuncInstructions()
+      addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
+      clearLocals()
+
+      functions.toList
 
     /** `true` iff the transpiler is processing top-level symbols. */
     private var _isTopLevel = true
