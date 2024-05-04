@@ -28,7 +28,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       ImportFromModule("api", "show-memory", "show-memory", List(I32), None),
       ImportMemory("api", "mem", 100)
     ),
-    List(
+    //List(
       /*FunctionDefinition("heap-test", body =
         List(
           IConst(0),
@@ -49,9 +49,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
           FSub
         )
       ),*/
-      //c.generateFunctionList(),
-      c.generateMain()
-    )
+    c.generateFunctionList().appended(c.generateMain())
   )
 
   // Tree visitor methods
@@ -111,10 +109,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       case alpine.symbols.Type.Int => I32
       case _ => I32
     ) 
-    val body = ??? // TODO : ok, how do we get the list of instructions
+    val body = a.instructions.toList
+    a.clearInstructions()
     a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
-
-    // FIXME : really ? what about nested functions ?
     a.clearLocals() // We exit the context of this function, clear locals.
   }
 
@@ -166,8 +163,6 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
         case None => // TODO : is this a litteral in this case ?
       )
       a.addInstruction(Call(n.function.asInstanceOf[Identifier].value))  
-
-    
 
   /** Visits `n` with state `a`. */
   def visitPrefixApplication(n: PrefixApplication)(using a: Context): Unit = ???
@@ -250,6 +245,8 @@ object CodeGenerator:
     val instructions = mutable.ListBuffer[Instruction]()
 
     def addInstruction(i: Instruction): Unit = instructions += i
+
+    def clearInstructions(): Unit = instructions.clear()
 
     def generateMain(): MainFunction = 
       val instr = instructions.toList
