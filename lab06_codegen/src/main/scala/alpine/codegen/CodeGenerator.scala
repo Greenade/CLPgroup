@@ -51,7 +51,6 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       ),*/
       //c.generateFunctionList(),
       c.generateMain()
-      
     )
   )
 
@@ -64,24 +63,24 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   /** Visits `n` with state `a`. */
   def visitBinding(n: Binding)(using a: Context): Unit = 
     /* Create stack space */
-    val tpe: WasmType = n.ascription match // for now, we only support Int and Float
-      case None => ???
-      case Some(t) => 
-        t match
-        //case ??? => I32 // int
-        //case ??? => F32 // float
-        case _ => ??? 
-    a.pushLocal(n.identifier, tpe)
+    n.ascription match // for now, we only support Int and Float
+      case Some(t) => t.tpe match
+        case alpine.symbols.Type.Int => //a.pushLocal(n.identifier, I32)
+        case alpine.symbols.Type.Float => //a.pushLocal(n.identifier, F32)
+        case _ => // Do nothing 
+      case None => // Do nothing
 
     /* Evaluate the rhs of the binding */
     n.initializer match
-      case Some(e) => e.visit(this)
+      case Some(e) => 
+        e.visit(this)
+      /* Assign local value */
+        if e.tpe == alpine.symbols.Type.Int || e.tpe == alpine.symbols.Type.Float then
+          val tpe = I32 // TODO, do something about it with e.tpe
+          a.pushLocal(n.identifier, tpe)
+          a.addInstruction(LocalSet(a.getLocal(n.identifier).get.position))
       case _ => 
 
-    /* Assign local value */
-    //a.addInstruction(LocalSet())
-
-    ???
 
   /** Visits `n` with state `a`. */
   def visitTypeDeclaration(n: TypeDeclaration)(using a: Context): Unit = ???
@@ -103,7 +102,10 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
     val locals = a.allLocals().sortBy(_.position).map(_.tpe)
     val returnType = ???
     val body = ??? // TODO : ok, how do we get the list of instructions
-    FunctionDefinition(name, params, locals, returnType, body)
+    a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
+
+    // FIXME : really ? what about nested functions ?
+    a.clearLocals() // We exit the context of this function, clear locals.
   }
 
   /** Visits `n` with state `a`. */
@@ -117,11 +119,11 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = 
-    a.addInstruction(IConst(n.value.toInt))
+    a.addInstruction(IConst(n.value.toInt)) // Pushes this constant to the stack, not a local !
 
   /** Visits `n` with state `a`. */
   def visitFloatLiteral(n: FloatLiteral)(using a: Context): Unit = 
-    a.addInstruction(FConst(n.value.toFloat)) 
+    a.addInstruction(FConst(n.value.toFloat)) // Pushes this constant to the stack, not a local !
 
   /** Visits `n` with state `a`. */
   def visitStringLiteral(n: StringLiteral)(using a: Context): Unit = ???
@@ -136,16 +138,22 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitApplication(n: Application)(using a: Context): Unit = 
     n.arguments.foreach(_.visit(this))
     if(n.function.isInstanceOf[Identifier] && n.function.asInstanceOf[Identifier].value == "print")
-      n.function.tpe match
+      n.arguments(0).value.tpe match
       case symbols.Type.Int => 
-        a.addInstruction(LocalGet(0))
         a.addInstruction(Call("print"))
       case symbols.Type.Float => 
-        a.addInstruction(LocalGet(0))
         a.addInstruction(Call("fprint"))
-      case _ => ???
+      case _ =>  // TODO : do nothing ?
     else
-      ??? // not sure how to handle this
+      n.arguments.foreach(_.value.referredEntity match
+        case Some(entityRef) => 
+          a.getLocal(entityRef.entity.name.identifier) match
+            case Some(local) => a.addInstruction(LocalGet(local.position))
+            case None => assert(false) // OUPS ! there should be a local registered
+        case None => // TODO : is this a litteral in this case ?
+      )
+      a.addInstruction(Call(n.function.asInstanceOf[Identifier].value))  
+
     
 
   /** Visits `n` with state `a`. */
@@ -229,9 +237,13 @@ object CodeGenerator:
 
     def addInstruction(i: Instruction): Unit = instructions += i
 
-    def generateMain(): MainFunction = MainFunction(
-        instructions.toList,
-        Some(F32) // what is the return type of the main function ?
+    def generateMain(): MainFunction = 
+      val instr = instructions.toList
+      println(instr.toString())
+      MainFunction(
+        instr,
+        None
+        //Some(I32) // what is the return type of the main function ?
       )
 
     private var localIdx = 0
@@ -250,7 +262,10 @@ object CodeGenerator:
       locals.clear()
       localIdx = 0
 
-    def generateFunctionList(): List[FunctionDefinition] = ???
+    val functions = mutable.ListBuffer[FunctionDefinition]()
+    def addFunctionDefinition(f: FunctionDefinition): Unit = functions += f
+
+    def generateFunctionList(): List[FunctionDefinition] = functions.toList
 
     /** `true` iff the transpiler is processing top-level symbols. */
     private var _isTopLevel = true
