@@ -64,7 +64,13 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   /** Visits `n` with state `a`. */
   def visitBinding(n: Binding)(using a: Context): Unit = 
     /* Create stack space */
-    val tpe: WasmType = ???
+    val tpe: WasmType = n.ascription match // for now, we only support Int and Float
+      case None => ???
+      case Some(t) => 
+        t match
+        //case ??? => I32 // int
+        //case ??? => F32 // float
+        case _ => ??? 
     a.pushLocal(n.identifier, tpe)
 
     /* Evaluate the rhs of the binding */
@@ -87,9 +93,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
      * visiting the body recusrively.
      */
 
-     n.body.visit(this)
+    n.body.visit(this)
 
-     /* TODO : if everything has been done right, we can get through the context the set of
+    /* TODO : if everything has been done right, we can get through the context the set of
       * locals registered so far, and create our final FunctionDefinition */
 
     val name = n.identifier
