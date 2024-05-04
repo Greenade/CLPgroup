@@ -57,7 +57,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   // Tree visitor methods
 
   /** Visits `n` with state `a`. */
-  def visitLabeled[T <: Tree](n: Labeled[T])(using a: Context): Unit = ???
+  def visitLabeled[T <: Tree](n: Labeled[T])(using a: Context): Unit = 
+    n.value.visit(this) // note sure and definitely not complete
 
   /** Visits `n` with state `a`. */
   def visitBinding(n: Binding)(using a: Context): Unit = ???
@@ -95,7 +96,20 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitSelection(n: Selection)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitApplication(n: Application)(using a: Context): Unit = ???
+  def visitApplication(n: Application)(using a: Context): Unit = 
+    n.arguments.foreach(_.visit(this))
+    if(n.function.isInstanceOf[Identifier] && n.function.asInstanceOf[Identifier].value == "print")
+      n.function.tpe match
+      case symbols.Type.Int => 
+        a.addInstruction(LocalGet(0))
+        a.addInstruction(Call("print"))
+      case symbols.Type.Float => 
+        a.addInstruction(LocalGet(0))
+        a.addInstruction(Call("fprint"))
+      case _ => ???
+    else
+      ??? // not sure how to handle this
+    
 
   /** Visits `n` with state `a`. */
   def visitPrefixApplication(n: PrefixApplication)(using a: Context): Unit = ???
@@ -176,14 +190,14 @@ object CodeGenerator:
 
     val instructions = mutable.ListBuffer[Instruction]()
 
+    def addInstruction(i: Instruction): Unit = instructions += i
+
     def generateMain(): MainFunction = MainFunction(
-        instructions.toList//,
-        //Some(F32) // what is the return type of the main function?
+        instructions.toList,
+        Some(F32) // what is the return type of the main function ?
       )
 
     def generateFunctionList(): List[FunctionDefinition] = ???
-
-    def addInstruction(i: Instruction): Unit = instructions += i
 
     /** `true` iff the transpiler is processing top-level symbols. */
     private var _isTopLevel = true
