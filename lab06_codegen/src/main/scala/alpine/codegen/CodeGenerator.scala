@@ -116,7 +116,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitBooleanLiteral(n: BooleanLiteral)(using a: Context): Unit = 
-    a.addInstruction(IConst(if n.value then 1 else 0)) // Pushes this constant to the stack, not a local !
+    a.addInstruction(IConst(if n.value == "true" then 1 else 0)) // Pushes this constant to the stack, not a local !
 
   /** Visits `n` with state `a`. */
   def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = 
@@ -164,7 +164,14 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitInfixApplication(n: InfixApplication)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitConditional(n: Conditional)(using a: Context): Unit = ???
+  def visitConditional(n: Conditional)(using a: Context): Unit =
+    n.condition.visit(this)
+    val label = Label()
+    a.addInstruction(If(label))
+    n.thenExpression.visit(this)
+    a.addInstruction(Else(label))
+    n.elseExpression.visit(this)
+    a.addInstruction(End(label))
 
   /** Visits `n` with state `a`. */
   def visitMatch(n: Match)(using a: Context): Unit = ???
