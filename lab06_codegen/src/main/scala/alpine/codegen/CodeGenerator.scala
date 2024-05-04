@@ -201,7 +201,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitLambda(n: Lambda)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitParenthesizedExpression(n: ParenthesizedExpression)(using a: Context): Unit = ???
+  def visitParenthesizedExpression(n: ParenthesizedExpression)(using a: Context): Unit =
+    n.inner.visit(this)
 
   /** Visits `n` with state `a`. */
   def visitAscribedExpression(n: AscribedExpression)(using a: Context): Unit = ???
