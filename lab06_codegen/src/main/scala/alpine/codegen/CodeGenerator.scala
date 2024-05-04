@@ -173,13 +173,14 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitConditional(n: Conditional)(using a: Context): Unit =
-    // a.addInstruction(If_i32(n.successCase.visit(this),n.failureCase.visit(this)))
     a.pushIfBlock()
     n.successCase.visit(this)
     val _then = a.popIfBlock()
+
     a.pushIfBlock()
     n.failureCase.visit(this)
     val _else = a.popIfBlock()
+
     val i = n.tpe match 
       case alpine.symbols.Type.Int => If_i32(_then, Some(_else))
       case _ => If_void(_then, Some(_else)) // Assume void
