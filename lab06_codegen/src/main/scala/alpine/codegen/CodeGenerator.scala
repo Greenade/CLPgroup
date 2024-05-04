@@ -98,9 +98,19 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       * locals registered so far, and create our final FunctionDefinition */
 
     val name = n.identifier
-    val params = ???
+    val params = n.inputs.map(_.ascription match
+      case Some(value) => value.tpe match
+        case alpine.symbols.Type.Float => F32
+        case alpine.symbols.Type.Int => I32
+        case _ => I32 // FIXME : à défaut...
+      case None => I32 // FIXME : à défaut...
+    )
     val locals = a.allLocals().sortBy(_.position).map(_.tpe)
-    val returnType = ???
+    val returnType = n.output.map(_.tpe match
+      case alpine.symbols.Type.Float => F32
+      case alpine.symbols.Type.Int => I32
+      case _ => I32
+    ) 
     val body = ??? // TODO : ok, how do we get the list of instructions
     a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
 
@@ -118,7 +128,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitBooleanLiteral(n: BooleanLiteral)(using a: Context): Unit = 
-    a.addInstruction(IConst(if n.value == "true" then 1 else 0)) // Pushes this constant to the stack, not a local !
+    a.addInstruction(IConst(if n.value then 1 else 0)) // Pushes this constant to the stack, not a local !
 
   /** Visits `n` with state `a`. */
   def visitIntegerLiteral(n: IntegerLiteral)(using a: Context): Unit = 
