@@ -166,14 +166,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitInfixApplication(n: InfixApplication)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitConditional(n: Conditional)(using a: Context): Unit = ???
-    // n.condition.visit(this)
-    // val label = Label()
-    // a.addInstruction(If(label))
-    // n.thenExpression.visit(this)
-    // a.addInstruction(Else(label))
-    // n.elseExpression.visit(this)
-    // a.addInstruction(End(label))
+  def visitConditional(n: Conditional)(using a: Context): Unit =
+    a.addInstruction(If_i32(n.successCase.visit(this),n.failureCase.visit(this)))
 
   /** Visits `n` with state `a`. */
   def visitMatch(n: Match)(using a: Context): Unit = ???
