@@ -98,9 +98,18 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       * locals registered so far, and create our final FunctionDefinition */
 
     val name = n.identifier
-    val params = ???
+    val params = n.inputs.map(_.ascription match
+      case Some(value) => value.tpe match
+        case alpine.symbols.Type.Float => F32
+        case alpine.symbols.Type.Int => I32
+        case _ => I32 // FIXME : à défaut...
+    )
     val locals = a.allLocals().sortBy(_.position).map(_.tpe)
-    val returnType = ???
+    val returnType = n.output.map(_.tpe match
+      case alpine.symbols.Type.Float => F32
+      case alpine.symbols.Type.Int => I32
+      case _ => I32
+    ) 
     val body = ??? // TODO : ok, how do we get the list of instructions
     a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
 
