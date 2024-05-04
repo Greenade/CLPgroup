@@ -172,6 +172,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitConditional(n: Conditional)(using a: Context): Unit =
+    n.condition.visit(this)
+
     a.pushIfBlock()
     n.successCase.visit(this)
     val _then = a.popIfBlock()
