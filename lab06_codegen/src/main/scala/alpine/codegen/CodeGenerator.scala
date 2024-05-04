@@ -7,6 +7,7 @@ import alpine.ast._
 import alpine.wasm.Wasm
 import scala.collection.mutable
 import scala.collection.immutable.HashMap
+import scala.math.Numeric.BigDecimalAsIfIntegral
 
 /** The transpilation of an Alpine program to Scala. */
 final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGenerator.Context, Unit]:
@@ -109,8 +110,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       case alpine.symbols.Type.Int => I32
       case _ => I32
     ) 
-    val body = a.instructions.toList
-    a.clearInstructions()
+    val body = a.funcInstructions.toList
+    a.clearFuncInstructions()
     a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
     a.clearLocals() // We exit the context of this function, clear locals.
   }
@@ -171,8 +172,19 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitInfixApplication(n: InfixApplication)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitConditional(n: Conditional)(using a: Context): Unit = ???
+  def visitConditional(n: Conditional)(using a: Context): Unit =
     // a.addInstruction(If_i32(n.successCase.visit(this),n.failureCase.visit(this)))
+    a.pushIfBlock()
+    n.successCase.visit(this)
+    val _then = a.popIfBlock()
+    a.pushIfBlock()
+    n.failureCase.visit(this)
+    val _else = a.popIfBlock()
+    val i = n.tpe match 
+      case alpine.symbols.Type.Int => If_i32(_then, Some(_else))
+      case _ => If_void(_then, Some(_else)) // Assume void
+
+    a.addInstruction(i)
 
   /** Visits `n` with state `a`. */
   def visitMatch(n: Match)(using a: Context): Unit = ???
@@ -242,14 +254,26 @@ object CodeGenerator:
     /** The (partial) result of the transpilation. */
     def output: StringBuilder = _output
 
-    val instructions = mutable.ListBuffer[Instruction]()
+    val funcInstructions = mutable.ListBuffer[Instruction]()
+    val ifBlockInstructions = mutable.ListBuffer[mutable.ListBuffer[Instruction]]()
 
-    def addInstruction(i: Instruction): Unit = instructions += i
+    def addInstruction(i: Instruction): Unit = 
+      if ifBlockInstructions.isEmpty then
+        funcInstructions += i
+      else
+        addIfBlockInstruction(i)
 
-    def clearInstructions(): Unit = instructions.clear()
+    def clearFuncInstructions(): Unit = funcInstructions.clear()
+
+    def addIfBlockInstruction(i: Instruction): Unit = 
+      assert(!ifBlockInstructions.isEmpty)
+      ifBlockInstructions.last += i
+
+    def pushIfBlock(): Unit = ifBlockInstructions.addOne(mutable.ListBuffer[Instruction]())
+    def popIfBlock(): List[Instruction] = ifBlockInstructions.remove(ifBlockInstructions.size-1).toList
 
     def generateMain(): MainFunction = 
-      val instr = instructions.toList
+      val instr = funcInstructions.toList
       println(instr.toString())
       MainFunction(
         instr,
