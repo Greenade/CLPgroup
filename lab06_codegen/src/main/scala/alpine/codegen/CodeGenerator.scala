@@ -107,18 +107,19 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
      * visiting the body recusrively.
      */
 
-    n.body.visit(this)
 
     /* TODO : if everything has been done right, we can get through the context the set of
       * locals registered so far, and create our final FunctionDefinition */
 
     val name = n.identifier
-    val params = n.inputs.map(_.ascription match
-      case Some(value) => value.tpe match
-        case alpine.symbols.Type.Float => F32
-        case alpine.symbols.Type.Int => I32
-        case _ => I32 // FIXME : à défaut...
-      case None => I32 // FIXME : à défaut...
+    val params = n.inputs.map(param =>
+      param.visit(this)
+      param.ascription match
+        case Some(value) => value.tpe match
+          case alpine.symbols.Type.Float => F32
+          case alpine.symbols.Type.Int => I32
+          case _ => I32 // FIXME : à défaut...
+        case None => I32 // FIXME : à défaut...
     )
     val locals = a.allLocals().sortBy(_.position).map(_.tpe)
     val returnType = n.output.map(_.tpe match
@@ -126,6 +127,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       case alpine.symbols.Type.Int => I32
       case _ => I32
     ) 
+    n.body.visit(this)
     val body = a.funcInstructions.toList
     a.clearFuncInstructions()
     a.addFunctionDefinition(FunctionDefinition(name, params, locals, returnType, body))
@@ -133,11 +135,25 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   }
 
   /** Visits `n` with state `a`. */
-  def visitParameter(n: Parameter)(using a: Context): Unit = ???
+  def visitParameter(n: Parameter)(using a: Context): Unit = 
+    n.ascription.foreach(ascri => 
+      ascri.tpe match
+        case r@alpine.symbols.Type.Record(_, _) => a.registerRecord(n.identifier, r)
+        case _ => ascri.visit(this)
+      
+      val tpe = ascri.tpe match
+        case alpine.symbols.Type.Float => F32
+        case alpine.symbols.Type.Int => I32
+        case _ => I32
+      
+      a.pushLocal(n.identifier, tpe)
+    )
+    a.addInstruction(LocalGet(a.getLocal(n.identifier).get.position))
+
+    // TODO : register Record if it's the type of the parameter
 
   /** Visits `n` with state `a`. */
   def visitIdentifier(n: Identifier)(using a: Context): Unit = 
-    println(a.allLocals())
     a.addInstruction(LocalGet(a.getLocal(n.value).get.position))
 
   /** Visits `n` with state `a`. */
@@ -202,6 +218,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
     val record = a.getRecord(qualificationID).get
     val fieldsSize = record.fields.map(f => typeSize(f.value))
     
+    // Record address is on the stack the moment we call the qualification
     n.qualification.visit(this)
 
     val (fieldOffset, fieldType) = n.selectee match
@@ -291,7 +308,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitTypeIdentifier(n: TypeIdentifier)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitRecordType(n: RecordType)(using a: Context): Unit = ???
+  def visitRecordType(n: RecordType)(using a: Context): Unit =
+    n.identifier
 
   /** Visits `n` with state `a`. */
   def visitTypeApplication(n: TypeApplication)(using a: Context): Unit = ???
