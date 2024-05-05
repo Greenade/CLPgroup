@@ -180,7 +180,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
         case alpine.symbols.Type.Float => 
           a.addInstruction(FStore)
         case _ =>
-          a.addIfBlockInstruction(IStore)
+          a.addInstruction(IStore)
     )
 
     /* Pushes the resulting record address on the stack */
