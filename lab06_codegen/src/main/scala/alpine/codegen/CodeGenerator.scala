@@ -8,6 +8,7 @@ import alpine.wasm.Wasm
 import scala.collection.mutable
 import scala.collection.immutable.HashMap
 import scala.math.Numeric.BigDecimalAsIfIntegral
+import alpine.symbols.Type
 
 /** The transpilation of an Alpine program to Scala. */
 final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGenerator.Context, Unit]:
@@ -139,7 +140,34 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitStringLiteral(n: StringLiteral)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitRecord(n: Record)(using a: Context): Unit = ???
+  def visitRecord(n: Record)(using a: Context): Unit =
+    def typeSize(t: symbols.Type): Int = t match
+      case alpine.symbols.Type.Int => 4
+      case alpine.symbols.Type.Float => 4
+      case _ => 4
+
+    /* Allocate some memory for the record, and register it somewhere ? */
+    val fieldsType = n.fields.map(_.value.tpe)
+    val recordSize = fieldsType.map(typeSize(_)).sum
+
+    val recordAddress = a.allocateRecord(recordSize)
+    var offset = 0
+
+    /* Visit the record declaration. Note that visiting the fields will produce instructions that push all values on the stack.
+     * Then, we just need to collect everything that's on the stack and store in memory */
+    n.fields.foreach (f =>
+      /* Put memory index */
+      a.addInstruction(IConst(recordAddress + offset))
+      offset += typeSize(f.value.tpe)
+
+      /* Visit the field, which ultimately results in adding an instruction to put the value on the stack */
+      f.value.visit(this)
+
+      a.addInstruction(IStore)
+    )
+
+    a.addInstruction(IConst(recordAddress))
+
 
   /** Visits `n` with state `a`. */
   def visitSelection(n: Selection)(using a: Context): Unit = ???
@@ -314,6 +342,15 @@ object CodeGenerator:
       clearLocals()
 
       functions.toList
+
+    /** Memory management */
+    private var memoryPointer: Int = 0
+
+    /** Allocates some space for a record of specified size. Returns the address of the start of this record */
+    def allocateRecord(size: Int): Int =
+      val address = memoryPointer
+      memoryPointer += size
+      address
 
     /** `true` iff the transpiler is processing top-level symbols. */
     private var _isTopLevel = true
