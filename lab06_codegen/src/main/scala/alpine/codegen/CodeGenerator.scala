@@ -209,12 +209,10 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
     // TODO : we need to find out which record we are referring to
     //val qualificationID = n.qualification.referredEntity.map(entity => entity.entity.name.identifier).get 
     val qual = n.qualification
-    println(f"qualification expression : $qual")
     val qualificationID = n.qualification match
       case Identifier(name, _) => name
       case _ => "" // FIXME
     
-    println(f"qualification: $qualificationID")
     val record = a.getRecord(qualificationID).get
     val fieldsSize = record.fields.map(f => typeSize(f.value))
     
@@ -265,7 +263,16 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitPrefixApplication(n: PrefixApplication)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitInfixApplication(n: InfixApplication)(using a: Context): Unit = ???
+  def visitInfixApplication(n: InfixApplication)(using a: Context): Unit = 
+    n.lhs.visit(this)
+    n.rhs.visit(this)
+    
+    n.function match
+      case Identifier(value, site) => value match
+        case "+" => a.addInstruction(IAdd)
+        case "==" => a.addInstruction(IEq)
+        case _ => // TODO
+      case _ =>
 
   /** Visits `n` with state `a`. */
   def visitConditional(n: Conditional)(using a: Context): Unit =
