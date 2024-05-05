@@ -148,7 +148,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       
       a.pushLocal(n.identifier, tpe)
     )
-    a.addInstruction(LocalGet(a.getLocal(n.identifier).get.position))
+    //a.addInstruction(LocalGet(a.getLocal(n.identifier).get.position))
 
     // TODO : register Record if it's the type of the parameter
 
@@ -305,7 +305,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   def visitAscribedExpression(n: AscribedExpression)(using a: Context): Unit = ???
 
   /** Visits `n` with state `a`. */
-  def visitTypeIdentifier(n: TypeIdentifier)(using a: Context): Unit = ???
+  def visitTypeIdentifier(n: TypeIdentifier)(using a: Context): Unit = 
+    n.value
 
   /** Visits `n` with state `a`. */
   def visitRecordType(n: RecordType)(using a: Context): Unit =
