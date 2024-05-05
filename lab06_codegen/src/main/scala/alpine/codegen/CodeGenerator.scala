@@ -252,13 +252,13 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
         a.addInstruction(Call("fprint"))
       case _ =>  // TODO : do nothing ?
     else
-      n.arguments.foreach(_.value.referredEntity match
+      /*n.arguments.foreach(_.value.referredEntity match
         case Some(entityRef) => 
           a.getLocal(entityRef.entity.name.identifier) match
             case Some(local) => a.addInstruction(LocalGet(local.position))
             case None => assert(false) // OUPS ! there should be a local registered
         case None => // TODO : is this a litteral in this case ?
-      )
+      )*/
       a.addInstruction(Call(n.function.asInstanceOf[Identifier].value))  
 
   /** Visits `n` with state `a`. */
