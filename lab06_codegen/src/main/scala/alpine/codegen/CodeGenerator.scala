@@ -75,10 +75,15 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       case Some(e) => 
         e.visit(this)
       /* Assign local value */
-        if e.tpe == alpine.symbols.Type.Int || e.tpe == alpine.symbols.Type.Float then
-          val tpe = I32 // TODO, do something about it with e.tpe
-          a.pushLocal(n.identifier, tpe)
-          a.addInstruction(LocalSet(a.getLocal(n.identifier).get.position))
+        e.tpe match 
+          case alpine.symbols.Type.Unit =>
+          case alpine.symbols.Type.Int | alpine.symbols.Type.Float | alpine.symbols.Type.Record(_, _) =>
+            println(e.tpe)
+            val tpe = I32 // TODO, do something about it with e.tpe
+            a.pushLocal(n.identifier, tpe)
+            a.addInstruction(LocalSet(a.getLocal(n.identifier).get.position))
+            println("push a local")
+          case _ => 
       case _ => 
 
 
@@ -122,6 +127,7 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitIdentifier(n: Identifier)(using a: Context): Unit = 
+    println(a.allLocals())
     a.addInstruction(LocalGet(a.getLocal(n.value).get.position))
 
   /** Visits `n` with state `a`. */
@@ -146,6 +152,8 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       case alpine.symbols.Type.Float => 4
       case _ => 4
 
+    a.registerRecord(n)
+
     /* Allocate some memory for the record, and register it somewhere ? */
     val fieldsType = n.fields.map(_.value.tpe)
     val recordSize = fieldsType.map(typeSize(_)).sum
@@ -166,11 +174,33 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       a.addInstruction(IStore)
     )
 
+    /* Pushes the resulting record address on the stack */
     a.addInstruction(IConst(recordAddress))
 
 
   /** Visits `n` with state `a`. */
-  def visitSelection(n: Selection)(using a: Context): Unit = ???
+  def visitSelection(n: Selection)(using a: Context): Unit =
+    /* Visiting the qualification should give us the identifier of the entity we want to access on the stack */
+    // TODO : we need to find out which record we are referring to
+    //val qualificationID = n.qualification.referredEntity.map(entity => entity.entity.name.identifier).get 
+    val qualificationID = n.qualification match
+      case Record(name, _, _) => name
+      case _ => "" // FIXME
+    
+    val record = a.getRecord(qualificationID).get
+    
+    n.qualification.visit(this)
+
+    val recordOffset = n.selectee match
+      case Identifier(value, _) => ???
+      case IntegerLiteral(value, _) => ???
+
+    /* The result of this should give us the address of the field in memory, which is then found on the stack */
+    a.addInstruction(IConst(recordOffset))
+    a.addInstruction(IAdd)
+
+    /* Push the value at specified memory on the stack */
+    a.addInstruction(ILoad) // FIXME : CHange the load depending on the type of the value we want to load
 
   /** Visits `n` with state `a`. */
   def visitApplication(n: Application)(using a: Context): Unit = 
@@ -265,7 +295,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
   /** Visits `n` with state `a`. */
   def visitError(n: ErrorTree)(using a: Context): Unit = ???
 
+
 object CodeGenerator:
+  case class Local(name: String, tpe: WasmType, position: Int)
 
   /** The local state of a transpilation to Scala.
    *
@@ -275,9 +307,13 @@ object CodeGenerator:
 
     /** The types that must be emitted in the program. */
     private var _typesToEmit = mutable.Set[symbols.Type.Record]()
+    private var records = mutable.HashMap[String, Record]()
 
     /** The types that must be emitted in the program. */
     def typesToEmit: Set[symbols.Type.Record] = _typesToEmit.toSet
+
+    def registerRecord(r: Record): Unit = records.addOne((r.identifier, r))
+    def getRecord(name: String): Option[Record] = records.get(name)
 
     /** The (partial) result of the transpilation. */
     private var _output = StringBuilder()

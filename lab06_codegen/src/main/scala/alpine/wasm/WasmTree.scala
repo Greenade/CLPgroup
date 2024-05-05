@@ -5,8 +5,6 @@ object WasmTree:
 
   // --- Types ---------------------------------------------------------------
 
-  case class Local(name: String, tpe: WasmType, position: Int)
-
   sealed trait WasmType
   case object I32 extends WasmType:
     override def toString = "i32"
