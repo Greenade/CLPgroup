@@ -54,6 +54,13 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
     c.generateFunctionList().appended(c.generateMain())
   )
 
+  // Utilitary functions
+
+  private def typeSize(t: symbols.Type): Int = t match
+    case alpine.symbols.Type.Int => 4
+    case alpine.symbols.Type.Float => 4
+    case _ => 4
+
   // Tree visitor methods
 
   /** Visits `n` with state `a`. */
@@ -84,6 +91,9 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
             a.addInstruction(LocalSet(a.getLocal(n.identifier).get.position))
             println("push a local")
           case _ => 
+        e.tpe match
+          case r@alpine.symbols.Type.Record(_, _) => a.registerRecord(n.identifier, r)
+          case _ =>
       case _ => 
 
 
@@ -147,13 +157,6 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
 
   /** Visits `n` with state `a`. */
   def visitRecord(n: Record)(using a: Context): Unit =
-    def typeSize(t: symbols.Type): Int = t match
-      case alpine.symbols.Type.Int => 4
-      case alpine.symbols.Type.Float => 4
-      case _ => 4
-
-    a.registerRecord(n)
-
     /* Allocate some memory for the record, and register it somewhere ? */
     val fieldsType = n.fields.map(_.value.tpe)
     val recordSize = fieldsType.map(typeSize(_)).sum
@@ -171,7 +174,13 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
       /* Visit the field, which ultimately results in adding an instruction to put the value on the stack */
       f.value.visit(this)
 
-      a.addInstruction(IStore)
+      f.value.tpe match
+        case alpine.symbols.Type.Int => 
+          a.addInstruction(IStore)
+        case alpine.symbols.Type.Float => 
+          a.addInstruction(FStore)
+        case _ =>
+          a.addIfBlockInstruction(IStore)
     )
 
     /* Pushes the resulting record address on the stack */
@@ -183,24 +192,37 @@ final class CodeGenerator(syntax: TypedProgram) extends ast.TreeVisitor[CodeGene
     /* Visiting the qualification should give us the identifier of the entity we want to access on the stack */
     // TODO : we need to find out which record we are referring to
     //val qualificationID = n.qualification.referredEntity.map(entity => entity.entity.name.identifier).get 
+    val qual = n.qualification
+    println(f"qualification expression : $qual")
     val qualificationID = n.qualification match
-      case Record(name, _, _) => name
+      case Identifier(name, _) => name
       case _ => "" // FIXME
     
+    println(f"qualification: $qualificationID")
     val record = a.getRecord(qualificationID).get
+    val fieldsSize = record.fields.map(f => typeSize(f.value))
     
     n.qualification.visit(this)
 
-    val recordOffset = n.selectee match
-      case Identifier(value, _) => ???
-      case IntegerLiteral(value, _) => ???
+    val (fieldOffset, fieldType) = n.selectee match
+      case Identifier(value, _) =>
+        val until = record.fields.indexWhere(_.label.get == value)
+        (fieldsSize.slice(0, until).sum, record.fields.find(_.label.get == value).get.value)
+      case IntegerLiteral(value, _) => 
+        (fieldsSize.slice(0, value.toInt).sum, record.fields(value.toInt).value)
 
     /* The result of this should give us the address of the field in memory, which is then found on the stack */
-    a.addInstruction(IConst(recordOffset))
+    a.addInstruction(IConst(fieldOffset))
     a.addInstruction(IAdd)
 
     /* Push the value at specified memory on the stack */
-    a.addInstruction(ILoad) // FIXME : CHange the load depending on the type of the value we want to load
+    fieldType match
+      case alpine.symbols.Type.Int =>
+        a.addInstruction(ILoad)
+      case alpine.symbols.Type.Float =>
+        a.addInstruction(FLoad)
+      case _ =>
+        a.addInstruction(ILoad)
 
   /** Visits `n` with state `a`. */
   def visitApplication(n: Application)(using a: Context): Unit = 
@@ -307,13 +329,13 @@ object CodeGenerator:
 
     /** The types that must be emitted in the program. */
     private var _typesToEmit = mutable.Set[symbols.Type.Record]()
-    private var records = mutable.HashMap[String, Record]()
+    private var records = mutable.HashMap[String, symbols.Type.Record]()
 
     /** The types that must be emitted in the program. */
     def typesToEmit: Set[symbols.Type.Record] = _typesToEmit.toSet
 
-    def registerRecord(r: Record): Unit = records.addOne((r.identifier, r))
-    def getRecord(name: String): Option[Record] = records.get(name)
+    def registerRecord(name: String, r: alpine.symbols.Type.Record): Unit = records.addOne((name, r))
+    def getRecord(name: String): Option[alpine.symbols.Type.Record] = records.get(name)
 
     /** The (partial) result of the transpilation. */
     private var _output = StringBuilder()
