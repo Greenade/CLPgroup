@@ -1,0 +1,7 @@
+fun f(x: Int) -> Int {
+  let y = 42 {
+    x + y
+  }
+}
+
+let res = f(1)
