@@ -1,4 +1,4 @@
-package alpine.codegen
+package alpine.transpiler
 
 import alpine._
 import sys.process._
@@ -9,7 +9,7 @@ import java.io.File
 import alpine.wasm.Wasm
 
 
-object CodegenCUtils:
+object TranspilerCUtils:
    /**
     * Represents a test case for the code generator WASM
     *
@@ -17,7 +17,7 @@ object CodegenCUtils:
     * @param input The lines of the input file, i.e., the alpine code
     * @param expected The expected lines of the std out when running the transpiled program
     */
-  case class CodegenCTest(name: String, input: List[String], expected: List[String])
+  case class TranspilerCTest(name: String, input: List[String], expected: List[String])
 
   /**
     * Parses a file with the correct format and produces a list of TranspilerTest instances
@@ -25,7 +25,7 @@ object CodegenCUtils:
     * @param lines
     * @return
     */
-  def parseTests(lines: List[String]): List[CodegenCTest] = 
+  def parseTests(lines: List[String]): List[TranspilerCTest] = 
     val indicesBeginningTests = lines.zipWithIndex.filter(p => p._1.startsWith("//BEGIN")).map(_._2)
     val indicesEndTests = lines.zipWithIndex.filter(p => p._1.startsWith("//END")).map(_._2 + 1)
     val boundsOfTests = indicesBeginningTests.zip(indicesEndTests)
@@ -38,7 +38,7 @@ object CodegenCUtils:
       println(f"name = '$name'")
       println(f"code = $code")
       println(f"out = $out")
-      CodegenCTest(name = name, input = code, expected = out)
+      TranspilerCTest(name = name, input = code, expected = out)
     )
 
   

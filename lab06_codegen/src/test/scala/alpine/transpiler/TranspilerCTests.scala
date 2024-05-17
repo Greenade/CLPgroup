@@ -1,11 +1,12 @@
-package alpine.codegen
+package alpine.transpiler
 
 import scala.io.Source
+import alpine.transpiler.TranspilerCUtils
 
-class CodegenCTests extends munit.FunSuite:
+class TranspilerCTests extends munit.FunSuite:
   private val lineSeparator = System.lineSeparator()
 
-  var runner: Option[CodegenCUtils.Runner] = None
+  var runner: Option[TranspilerCUtils.Runner] = None
   
   val inputFileAlpineTests = "./src/test/res/codegen/test_cases.al"
 
@@ -17,7 +18,7 @@ class CodegenCTests extends munit.FunSuite:
     */
   def runTestsFromFile(filename: String)(implicit loc: munit.Location): Unit = {
     val lines: List[String] = Source.fromFile(filename).getLines().toList
-    val tests = CodegenCUtils.parseTests(lines)
+    val tests = alpine.transpiler.TranspilerCUtils.parseTests(lines)
     for t <- tests do
       test(t.name) {
         val r = runner.get
@@ -37,7 +38,7 @@ class CodegenCTests extends munit.FunSuite:
   }
 
   override def beforeAll(): Unit =
-    runner = Some(CodegenCUtils.Runner())
+    runner = Some(alpine.transpiler.TranspilerCUtils.Runner())
 
   override def afterAll(): Unit =
     //runner.foreach(_.delete)
