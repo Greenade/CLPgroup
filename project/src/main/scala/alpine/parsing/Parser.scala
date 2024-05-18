@@ -441,10 +441,10 @@ class Parser(val source: SourceFile):
           case Some(Token(K.LBrace, _)) =>
             restore(backup)
             true
-          case None =>
+          case Some(_) | None =>
             restore(backup)
             false
-      case Some(value) =>
+      case Some(_) =>
         take()
         lambdafinding(backup)
       case None =>
