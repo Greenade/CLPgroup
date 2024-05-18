@@ -713,6 +713,8 @@ final class Typer(
         n.identifier
       case n: ast.Parameter =>
         n.identifier
+      case n: ast.TypeDeclaration =>
+        n.identifier
       case _: ast.ErrorTree =>
         unexpectedVisit(d)
 
