@@ -36,26 +36,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
   /** Writes the Scala declaration of `t` in `context`. */
   private def emitRecord(t: symbols.Type.Record)(using context: Context): Unit =
-    val arity = t.fields.length
-    if arity > 0 then
-      context.output ++= "case class "
-    else
-      context.output ++= "case object "
-
-    context.output ++= discriminator(t) // We don't need to get the transpiled type
-
-    if arity > 0 then
-      context.output ++= "("
-      var n = 0
-      context.output.appendCommaSeparated(t.fields) { (o, a) =>
-        val label = "$" + n
-        o ++= label + ": "
-        o ++= transpiledType(a.value) 
-        n += 1
-      }
-      context.output ++= ")"
-    context.output ++= "\n"
-
+    ???
   /** Writes the Scala declaration of `t`, which is not a singleton, in `context`. */
   private def emitNonSingletonRecord(t: symbols.Type.Record)(using context: Context): Unit =
  
@@ -86,28 +67,14 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
   /** Returns the transpiled form of `t`. */
   private def transpiledRecord(t: symbols.Type.Record)(using context: Context): String =
-    if t == symbols.Type.Unit then
-      "Unit"
-    else
-      context.registerUse(t)
-      val d = discriminator(t)
-      if t.fields.isEmpty then s"${d}.type" else d
-      //d
+    ???
 
   /** Returns the transpiled form of `t`. */
   private def transpiledArrow(t: symbols.Type.Arrow)(using context: Context): String =
-    val r = StringBuilder()
-    r ++= "("
-    r.appendCommaSeparated(t.inputs) { (o, a) => o ++= transpiledType(a.value) }
-    r ++= " => "
-    r ++= transpiledType(t.output)
-    r ++= ")"
-    r.toString()
-
+    ???
   /** Returns the transpiled form of `t`. */
   private def transpiledSum(t: symbols.Type.Sum)(using context: Context): String =
-    if t.members.isEmpty then "N" else
-      t.members.map(transpiledType).mkString(" | ")
+    ???
 
   /** Returns a string uniquely identifiyng `t` for use as a discriminator in a mangled name. */
   private def discriminator(t: symbols.Type): String =
@@ -179,214 +146,70 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitBinding(n: ast.Binding)(using context: Context): Unit =
-    // Bindings represent global symbols at top-level.
-    if context.isTopLevel then
-      context.output ++= "  " * context.indentation
-
-      // If the is the entry point if it's called "main".
-      if n.identifier == "main" then
-        context.output ++= "@main def $entry"
-      else
-        context.output ++= s"private val "
-        context.output ++= transpiledReferenceTo(n.entityDeclared)
-
-      context.output ++= ": "
-      context.output ++= transpiledType(n.tpe)
-
-      // Top-level bindings must have an initializer.
-      assert(n.initializer.isDefined)
-      context.indentation += 1
-      context.output ++= " =\n"
-      context.output ++= "  " * context.indentation
-      context.inScope((c) => n.initializer.get.visit(this)(using c))
-      context.output ++= "\n\n"
-      context.indentation -= 1
-
-    // Bindings at local-scope are used in let-bindings and pattern cases.
-    else
-      context.output ++= s"val "
-      context.output ++= transpiledReferenceTo(n.entityDeclared)
-      context.output ++= ": "
-      context.output ++= transpiledType(n.tpe)
-      n.initializer.map { (i) =>
-        context.output ++= " = "
-        context.inScope((c) => i.visit(this)(using c))
-      }
+    ???
 
   override def visitTypeDeclaration(n: ast.TypeDeclaration)(using context: Context): Unit =
     unexpectedVisit(n)
 
   override def visitFunction(n: ast.Function)(using context: Context): Unit =
-    context.output ++= "  " * context.indentation
-    context.output ++= "def "
-    context.output ++= transpiledReferenceTo(n.entityDeclared)
-    context.output ++= "("
-    context.output.appendCommaSeparated(n.inputs) { (o, a) =>
-      o ++= a.identifier
-      o ++= ": "
-      o ++= transpiledType(a.tpe)
-    }
-    context.output ++= "): "
-    context.output ++= transpiledType(symbols.Type.Arrow.from(n.tpe).get.output)
-    context.output ++= " =\n"
-
-    context.indentation += 1
-    context.output ++= "  " * context.indentation
-    context.inScope((c) => n.body.visit(this)(using c))
-    context.output ++= "\n\n"
-    context.indentation -= 1
-
+    ???
   override def visitParameter(n: ast.Parameter)(using context: Context): Unit =
     unexpectedVisit(n)
 
   override def visitIdentifier(n: ast.Identifier)(using context: Context): Unit =
-    context.output ++= transpiledReferenceTo(n.referredEntity.get.entity)
+    ???
 
   override def visitBooleanLiteral(n: ast.BooleanLiteral)(using context: Context): Unit =
-    context.output ++= n.value.toString
+    ???
 
   override def visitIntegerLiteral(n: ast.IntegerLiteral)(using context: Context): Unit =
-    context.output ++= n.value.toString
+    ???
 
   override def visitFloatLiteral(n: ast.FloatLiteral)(using context: Context): Unit =
-    context.output ++= n.value.toString ++ "f"
+    ???
 
   override def visitStringLiteral(n: ast.StringLiteral)(using context: Context): Unit =
-    context.output ++= n.value
+    ???
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
-    /* TODO : possibly call emitRecord* functions ? */
-    context.output ++= transpiledType(n.tpe)
-    context.output ++= "("
-    context.output.appendCommaSeparated(n.fields) { (o, a) =>
-      a.value.visit(this)
-    }
-    context.output ++= ")"
+    ???
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
-    n.qualification.visit(this)
-    n.referredEntity match
-      case Some(symbols.EntityReference(e: symbols.Entity.Field, _)) =>
-        context.output ++= ".$" + e.index
-      case _ =>
-        unexpectedVisit(n.selectee)
+    ???
 
   override def visitApplication(n: ast.Application)(using context: Context): Unit =
-    n.function.visit(this)
-    context.output ++= "("
-    context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
-    context.output ++= ")"
+    ???
 
   override def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Unit =
-    n.function.visit(this)
-    context.output ++= "("
-    n.argument.visit(this)
-    context.output ++= ")"
+    ???
 
   override def visitInfixApplication(n: ast.InfixApplication)(using context: Context): Unit =
-    n.function.visit(this)
-    context.output ++= "("
-    n.lhs.visit(this)
-    context.output ++= ", "
-    n.rhs.visit(this)
-    context.output ++= ")"
+    ???
 
   override def visitConditional(n: ast.Conditional)(using context: Context): Unit =
-    context.output ++= "if "
-    n.condition.visit(this)
-    context.output ++= " then "
-    n.successCase.visit(this)
-    context.output ++= " else "
-    n.failureCase.visit(this)
+    ???
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =
-    n.scrutinee.visit(this)
-    context.output ++= " match { \n"
-    context.indentation += 1
-    n.cases.foreach(c => c.visit(this))
-    context.indentation -= 1
-    context.output ++= "\n}\n"
-    // TODO : to be tested
+    ???
 
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
-    context.output ++= "case "
-    n.pattern match
-      case ErrorTree(site) => n.pattern.visit(this)
-      case Binding(identifier, ascription, initializer, site) =>
-        val temp = context.output.length()
-        n.pattern.visit(this)
-        context.output.delete(temp, temp + 4)
-      case ValuePattern(value, site) => n.pattern.visit(this)
-      case RecordPattern(identifier, fields, site) => n.pattern.visit(this)
-      case Wildcard(site) => n.pattern.visit(this)
-    
-    context.output ++= " => "
-    context.indentation += 1
-    n.body.visit(this)
-    context.output ++= "\n"
-    context.indentation -= 1
-    context.output ++= "\n"
-    // TODO : to be tested 
+    ???
 
   override def visitLet(n: ast.Let)(using context: Context): Unit =
-    // Use a block to uphold lexical scoping.
-    context.output ++= "{\n"
-    context.indentation += 1
-    context.output ++= "  " * context.indentation
-    n.binding.visit(this)
-    context.output ++= "\n"
-    context.output ++= "  " * context.indentation
-    n.body.visit(this)
-    context.output ++= "\n"
-    context.indentation -= 1
-    context.output ++= "  " * context.indentation
-    context.output ++= "}"
+    ???
 
   override def visitLambda(n: ast.Lambda)(using context: Context): Unit =
-    context.output ++= "("
-    context.output.appendCommaSeparated(n.inputs) { (o, a) =>
-      o ++= a.identifier
-      o ++= ": "
-      o ++= transpiledType(a.tpe)
-    }
-    context.output ++= ") => ("
-    n.body.visit(this)
-    context.output ++= "): "
-    context.output ++= transpiledType(symbols.Type.Arrow.from(n.tpe).get.output)
+    ???
 
   override def visitParenthesizedExpression(
       n: ast.ParenthesizedExpression
   )(using context: Context): Unit =
-    context.output ++= "("
-    n.inner.visit(this)
-    context.output ++= ")"
+    ???
 
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    val transpiledSome = discriminator(Type.Record("#some", List(alpine.symbols.Type.Labeled(None, alpine.symbols.Type.Any))))
-    val transpiledNone = discriminator(Type.Record("#none", List()))
-    val transpiledAscription = transpiledType(n.ascription.tpe)
-    n.operation match
-      case Typecast.Narrow => 
-        context.output ++= "alpine_rt.narrow[" + transpiledAscription + "," + transpiledType(alpine.symbols.Type.Any) + "]("
-        n.inner.visit(this)
-        context.output ++= ","
-        context.output ++= "{(a) => " + transpiledSome + "(a.asInstanceOf["
-        context.output ++= transpiledAscription
-        context.output ++= "])}, "
-        context.output ++= transpiledNone
-        context.output ++= ")"
-      case Typecast.NarrowUnconditionally =>
-        context.output ++= "alpine_rt.narrowUnconditionally("
-        n.inner.visit(this)
-        context.output ++=")"
-
-      case _ =>
-        n.inner.visit(this)
-        context.output ++= ".asInstanceOf["
-        context.output ++= transpiledType(n.ascription.tpe)
-        context.output ++= "] "
+    ???
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -410,32 +233,10 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     n.value.visit(this)
 
   override def visitRecordPattern(n: ast.RecordPattern)(using context: Context): Unit =
-    //context.output ++= discriminator(n.tpe)
-    val arity = n.fields.size
-    if arity == 0 then
-      context.output ++= "_ : "
-    context.output ++= transpiledType(n.tpe)
-    if arity > 0 then
-      context.output ++= "("
-      context.output.appendCommaSeparated(n.fields) { (o, a) => 
-        val temp = context.output.length()
-        a.value match
-          case ErrorTree(site) =>
-            a.value.visit(this) 
-          case Binding(identifier, ascription, initializer, site) =>
-            a.value.visit(this)
-            context.output.delete(temp, temp + 4)
-          case ValuePattern(value, site) =>
-            a.value.visit(this)
-          case RecordPattern(identifier, fields, site) =>
-            a.value.visit(this)
-          case Wildcard(site) =>
-            a.value.visit(this)
-      }
-      context.output ++= ") "
+    ???
 
   override def visitWildcard(n: ast.Wildcard)(using context: Context): Unit =
-    context.output ++= "_"
+    ???
 
   override def visitError(n: ast.ErrorTree)(using context: Context): Unit =
     unexpectedVisit(n)
