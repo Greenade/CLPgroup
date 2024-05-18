@@ -62,11 +62,12 @@ object TranspilerCUtils:
       val errorCode = Process(cmd, Some(tmpDir.toFile)).!(logger)
       (errorCode, output.toString, stderr.toString)
 
-    def compileC(input: Path): Either[CCompileError, String] =
-      val absolutePaths = input.toAbsolutePath()
-      // TODO : compile, then execute produced binary
-      val (exitCode, output, stderr) = spawn(f"gcc $absolutePaths -o binary", ignoreStderr = false)
-      ???
+    def compileC(input: Path): Either[CCompileError, Path] =
+      val absolutePaths = input.toAbsolutePath().toString()
+      val (exitCode, output, stderr) = spawn(f"gcc $absolutePaths -o $absolutePaths.bin", ignoreStderr = false)
+      // 255 (-1) is reserved for panic
+      if exitCode == 0 || exitCode == 255 then Right(tmpDir.resolve(absolutePaths + ".bin"))
+      else Left(CCompileError("Exit code: " ++ exitCode.toString ++ "\n" ++ output ++ "\n-- stderr --\n" ++ stderr))
 
     /** Runs the given C program in the temporary directory */
     def run(input: Path): Either[CRunError, String] =
