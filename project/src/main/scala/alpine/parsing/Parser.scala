@@ -419,7 +419,6 @@ class Parser(val source: SourceFile):
     val backup = snapshot()
     val start = take(K.LParen)
     if lambdafinding(backup) then
-      // FIXME : in the case of a paranthesized expression, it detects a lambda instead
       val l = valueParameterList()
       val ty = peek match
         case Some(Token(K.Arrow, _)) =>
@@ -436,13 +435,19 @@ class Parser(val source: SourceFile):
 
   private def lambdafinding(backup: Parser.Snapshot): Boolean =
     peek match
-      case Some(Token(K.LBrace, _)) =>
-        restore(backup)
-        true
+      case Some(Token(K.RParen, _)) =>
+        take()
+        peek match
+          case Some(Token(K.LBrace, _)) =>
+            restore(backup)
+            true
+          case None =>
+            restore(backup)
+            false
       case Some(value) =>
         take()
         lambdafinding(backup)
-      case _ =>
+      case None =>
         restore(backup)
         false
 
