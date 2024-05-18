@@ -133,10 +133,10 @@ class Parser(val source: SourceFile):
     inParentheses(() => commaSeparatedList(K.RParen.matches, parameter))
       .collect({ case p: Parameter => p })
 
-  private[parsing] def parameterLabelHelper(): Option[String] =
+  /*private[parsing] def parameterLabelHelper(): Option[String] =
     peek match
       case Some(Token(K.Identifier, _)) =>
-        val s = expect(K.Identifier)
+        val s = take(K.Identifier)
         Some(s.site.text.toString)
       case Some(Token(t,_)) if t.isKeyword =>
         val s = take()
@@ -145,12 +145,28 @@ class Parser(val source: SourceFile):
         take()
         None
       case _ =>
-        Some(missingName) // not sure, since that means we will have to use "_" as the label when no label is found
+         Some(missingName) // not sure, since that means we will have to use "_" as the label when no label is found
+         */
 
   /** Parses and returns a parameter declaration. */
   private[parsing] def parameter(): Declaration =
-    val label = parameterLabelHelper()
-    val id = expect(K.Identifier)
+    val (label: Option[String], id: Token) = peek match
+      case Some(Token(K.Identifier, _)) =>
+        val tempID = expect(K.Identifier)
+        peek match
+          case Some(Token(K.Identifier, _)) =>
+            (Some(tempID.site.text.toString), expect(K.Identifier))
+          case _ => 
+            (None, tempID)
+      case Some(Token(t,_)) if t.isKeyword =>
+        val s = take()
+        (Some(s.get.site.text.toString), expect(K.Identifier))
+      case Some(Token(K.Underscore,_)) =>
+        take()
+        (None, expect(K.Identifier))
+      case _ =>
+        (None, expect(K.Identifier))
+    
     peek match
       case Some(Token(K.Colon, _)) =>
         take()
