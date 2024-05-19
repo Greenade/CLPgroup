@@ -30,7 +30,19 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   /** Returns a Scala program equivalent to `syntax`. */
   def transpile(): String =
     given c: Context = Context()
+    c.output ++= 
+    """
+      #include <stdio.h>
+      #include <stdint.h>
+
+      int main(void) {
+    """
     syntax.declarations.foreach(_.visit(this))
+    c.output ++=
+    """
+        return 0;
+      }
+    """
     c.typesToEmit.map(emitRecord)
     c.output.toString
 
@@ -133,7 +145,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
       case symbols.Entity.Builtin(n, _) => n.identifier match
         case "print" => "printf"
         // TODO : other builtins to support ?
-        case _ => ""
+        case _@b =>  b
       case symbols.Entity.Declaration(n, t) => scalaized(n) + discriminator(t)
       case _: symbols.Entity.Field => ???
 
@@ -151,11 +163,12 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   override def visitBinding(n: ast.Binding)(using context: Context): Unit =
     val tpe = (n.ascription match
       case Some(ascription) => ascription.tpe match
-        case Type.Int | Type.Bool => "int32_t"
+        case Type.String => "char *"
         case Type.Float => "float"
+        case Type.Int | Type.Bool | _ => "int32_t"
         // TODO : probably records
         case _ => ""
-      case None => ""
+      case None => "int32_t"
     )
 
     context.output ++= tpe
@@ -163,24 +176,26 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     val initTpe = (n.initializer match
       case Some(expr) => 
         if !n.ascription.isDefined then expr.tpe match
-          case Type.Int | Type.Bool => "int32_t"
+          case Type.String => "char *"
           case Type.Float => "float"
+          case Type.Int | Type.Bool => "int32_t"
           // TODO : probably records
           case _ => ""
         else
           ""
-      case None => ""
+      case None => "int32_t"
     )
 
     context.output ++= initTpe
     context.output ++= " " + n.identifier
 
-    context.output ++= (n.initializer match
-      case Some(expr) => "= " + expr.visit(this)
-      case None => ""
-    )
-
-    context.output ++= ";"
+    n.initializer match
+      case Some(expr) => 
+        context.output ++= " = "
+        expr.visit(this)
+      case None =>
+    
+    context.output ++= ";\n"
 
   override def visitTypeDeclaration(n: ast.TypeDeclaration)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -192,7 +207,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitIdentifier(n: ast.Identifier)(using context: Context): Unit =
-    context.output ++= n.value
+    context.output ++= transpiledReferenceTo(n.referredEntity.get.entity)
 
   override def visitBooleanLiteral(n: ast.BooleanLiteral)(using context: Context): Unit =
     context.output ++= n.value
@@ -214,7 +229,9 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
   override def visitApplication(n: ast.Application)(using context: Context): Unit =
     n.function.visit(this)
-    ???
+    context.output ++= "("
+    context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
+    context.output ++= ");\n"
 
   override def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Unit =
     ???

@@ -35,9 +35,6 @@ object TranspilerCUtils:
       val codeEndIndex = l.tail.indexWhere(s => s.startsWith("//OUT"))
       val code = l.tail.slice(0, codeEndIndex).filter(!_.isEmpty())
       val out = l.slice(l.indexWhere(_.startsWith("//OUT")), l.indexWhere(_.startsWith("//END"))).filter(!_.contains("//OUT"))
-      println(f"name = '$name'")
-      println(f"code = $code")
-      println(f"out = $out")
       TranspilerCTest(name = name, input = code, expected = out)
     )
 
@@ -72,10 +69,10 @@ object TranspilerCUtils:
     /** Runs the given C program in the temporary directory */
     def run(input: Path): Either[CRunError, String] =
       val absolutePaths = input.toAbsolutePath()
-      val (exitCode, output, stderr) = spawn(f"./$absolutePaths")
+      val (exitCode, output, stderr) = spawn(f"./${input.getFileName()}")
       // 255 (-1) is reserved for panic
-      if exitCode == 0 || exitCode == 255 then Right(output.mkString("\n"))
-      else Left(CRunError("Exit code: " ++ exitCode.toString ++ "\n" ++ output.mkString("\n") ++ "\n-- stderr --\n" ++ stderr.mkString("\n")))
+      if exitCode == 0 || exitCode == 255 then Right(output)
+      else Left(CRunError("Exit code: " ++ exitCode.toString ++ "\n" ++ output ++ "\n-- stderr --\n" ++ stderr.mkString("\n")))
 
     /**
     * Run the alpine codegen to wasm, returning the Path to the generated .wat file

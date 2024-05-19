@@ -23,7 +23,7 @@ class TranspilerCTests extends munit.FunSuite:
       test(t.name) {
         val r = runner.get
         //val alpineTestFilename = "Input.al"
-        val alpineTestFilename = t.name.filter(!_.isWhitespace) + ".al"
+        val alpineTestFilename = t.name.filter(c => !c.isWhitespace && c != '(' && c != ')') + ".al"
         val inputAlpineFilePath = r.writeAlpineFile(alpineTestFilename, t.input.mkString(lineSeparator))
         val outputCFile = r.runAlpineCompiler(inputAlpineFilePath)
         val outputOfCProgram = outputCFile.flatMap(outputCFile => 
