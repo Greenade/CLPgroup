@@ -160,16 +160,16 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
 
   override def visitBooleanLiteral(n: ast.BooleanLiteral)(using context: Context): Unit =
-    ???
+    context.output ++= n.value
 
   override def visitIntegerLiteral(n: ast.IntegerLiteral)(using context: Context): Unit =
-    ???
+    context.output ++= n.value
 
   override def visitFloatLiteral(n: ast.FloatLiteral)(using context: Context): Unit =
-    ???
+    context.output ++= n.value
 
   override def visitStringLiteral(n: ast.StringLiteral)(using context: Context): Unit =
-    ???
+    context.output ++= n.value
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
     ???
