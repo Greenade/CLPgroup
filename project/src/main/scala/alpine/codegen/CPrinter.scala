@@ -130,7 +130,10 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   /** Returns a transpiled reference to `e`. */
   private def transpiledReferenceTo(e: symbols.Entity): String =
     e match
-      case symbols.Entity.Builtin(n, _) => s"alpine_rt.builtin.${n.identifier}"
+      case symbols.Entity.Builtin(n, _) => n.identifier match
+        case "print" => "printf"
+        // TODO : other builtins to support ?
+        case _ => ""
       case symbols.Entity.Declaration(n, t) => scalaized(n) + discriminator(t)
       case _: symbols.Entity.Field => ???
 
@@ -146,18 +149,50 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitBinding(n: ast.Binding)(using context: Context): Unit =
-    ???
+    val tpe = (n.ascription match
+      case Some(ascription) => ascription.tpe match
+        case Type.Int | Type.Bool => "int32_t"
+        case Type.Float => "float"
+        // TODO : probably records
+        case _ => ""
+      case None => ""
+    )
+
+    context.output ++= tpe
+
+    val initTpe = (n.initializer match
+      case Some(expr) => 
+        if !n.ascription.isDefined then expr.tpe match
+          case Type.Int | Type.Bool => "int32_t"
+          case Type.Float => "float"
+          // TODO : probably records
+          case _ => ""
+        else
+          ""
+      case None => ""
+    )
+
+    context.output ++= initTpe
+    context.output ++= " " + n.identifier
+
+    context.output ++= (n.initializer match
+      case Some(expr) => "= " + expr.visit(this)
+      case None => ""
+    )
+
+    context.output ++= ";"
 
   override def visitTypeDeclaration(n: ast.TypeDeclaration)(using context: Context): Unit =
     unexpectedVisit(n)
 
   override def visitFunction(n: ast.Function)(using context: Context): Unit =
     ???
+
   override def visitParameter(n: ast.Parameter)(using context: Context): Unit =
     unexpectedVisit(n)
 
   override def visitIdentifier(n: ast.Identifier)(using context: Context): Unit =
-    ???
+    context.output ++= n.value
 
   override def visitBooleanLiteral(n: ast.BooleanLiteral)(using context: Context): Unit =
     context.output ++= n.value
@@ -178,6 +213,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
 
   override def visitApplication(n: ast.Application)(using context: Context): Unit =
+    n.function.visit(this)
     ???
 
   override def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Unit =
