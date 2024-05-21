@@ -30,20 +30,12 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   /** Returns a Scala program equivalent to `syntax`. */
   def transpile(): String =
     given c: Context = Context()
-    c.output ++= 
-    """
-      #include <stdio.h>
-      #include <stdint.h>
-
-      int main(void) {
-    """
+    c.output ++= "#include <stdio.h>\n#include <stdint.h>\n\nint main(void) {\n"
+    c.indentation += 1
     syntax.declarations.foreach(_.visit(this))
-    c.output ++=
-    """
-        return 0;
-      }
-    """
-    c.typesToEmit.map(emitRecord)
+    c.output ++= "return 0;\n"
+    c.indentation -= 1
+    c.output ++= "}\n"
     c.output.toString
 
   /** Writes the Scala declaration of `t` in `context`. */
@@ -72,9 +64,9 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     t match
       case symbols.Type.BuiltinModule => throw Error(s"type '${t}' is not representable in Scala")
       case symbols.Type.Bool => "Boolean"
-      case symbols.Type.Int => "Int"
-      case symbols.Type.Float => "Float"
-      case symbols.Type.String => "String"
+      case symbols.Type.Int => "int32_t"
+      case symbols.Type.Float => "float"
+      case symbols.Type.String => "char *"
       case symbols.Type.Any => "Any"
 
   /** Returns the transpiled form of `t`. */
@@ -161,37 +153,39 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitBinding(n: ast.Binding)(using context: Context): Unit =
-    val tpe = (n.ascription match
-      case Some(ascription) => ascription.tpe match
-        case Type.String => "char *"
-        case Type.Float => "float"
-        case Type.Int | Type.Bool | _ => "int32_t"
-        // TODO : probably records
-        case _ => ""
-      case None => "int32_t"
-    )
+    def alpineTypeToCType(tpe: symbols.Type): Option[String] = tpe match
+      case arrow:symbols.Type.Arrow => alpineTypeToCType(arrow.output)
+      case symbols.Type.String => Some("char *")
+      case symbols.Type.Float => Some("float")
+      case symbols.Type.Int | Type.Bool => Some("int32_t")
+      // TODO : probably records
+      case _ => None
 
-    context.output ++= tpe
+    val tpe = (n.ascription match
+      case Some(ascription) => alpineTypeToCType(ascription.tpe)
+      case None => None
+    )
 
     val initTpe = (n.initializer match
-      case Some(expr) => 
-        if !n.ascription.isDefined then expr.tpe match
-          case Type.String => "char *"
-          case Type.Float => "float"
-          case Type.Int | Type.Bool => "int32_t"
-          // TODO : probably records
-          case _ => ""
-        else
-          ""
-      case None => "int32_t"
+      case Some(expr) => alpineTypeToCType(expr.tpe)
+      case None => None
     )
 
-    context.output ++= initTpe
-    context.output ++= " " + n.identifier
+    tpe match {
+      case Some(strType) => context.output ++= strType
+      case None => initTpe match
+        case Some(strType) => context.output ++= strType
+        case None =>
+    }
+    context.output ++= " "
+
+    if (!tpe.isEmpty || !initTpe.isEmpty) then
+      context.output ++= transpiledReferenceTo(n.entityDeclared)
 
     n.initializer match
       case Some(expr) => 
-        context.output ++= " = "
+        if (!tpe.isEmpty || !initTpe.isEmpty) then
+          context.output ++= " = "
         expr.visit(this)
       case None =>
     
@@ -201,7 +195,17 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitFunction(n: ast.Function)(using context: Context): Unit =
-    ???
+    n.output match
+      case Some(output) => context.output ++= transpiledType(output.tpe)
+      case None =>
+
+    context.output ++= " " + n.identifier + "("    
+    context.output.appendCommaSeparated(n.inputs) { (o, a) => a.identifier }
+    context.output ++= ") {\n"
+    context.indentation += 1
+    n.body.visit(this)
+    context.indentation -= 1
+    context.output ++= "\n}\n"
 
   override def visitParameter(n: ast.Parameter)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -257,7 +261,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   override def visitParenthesizedExpression(
       n: ast.ParenthesizedExpression
   )(using context: Context): Unit =
-    ???
+    context.output ++= "(" + n.inner + ")"
 
   override def visitAscribedExpression(
       n: ast.AscribedExpression
@@ -304,9 +308,12 @@ object CPrinter:
 
     /** The types that must be emitted in the program. */
     private var _typesToEmit = mutable.Set[symbols.Type.Record]()
+    private var _functionsToEmit = mutable.Set[symbols.Type.Arrow]()
 
     /** The types that must be emitted in the program. */
     def typesToEmit: Set[symbols.Type.Record] = _typesToEmit.toSet
+
+    def functionsToEmit: Set[symbols.Type.Arrow] = _functionsToEmit.toSet 
 
     /** The (partial) result of the transpilation. */
     private var _output = StringBuilder()
@@ -323,6 +330,9 @@ object CPrinter:
     /** Adds `t` to the set of types that are used by the transpiled program. */
     def registerUse(t: symbols.Type.Record): Unit =
       if t != symbols.Type.Unit then _typesToEmit.add(t)
+
+    def registerUse(t: symbols.Type.Arrow): Unit =
+      _functionsToEmit.add(t)
 
     /** Returns `action` applied on `this` where `output` has been exchanged with `o`. */
     def swappingOutputBuffer[R](o: StringBuilder)(action: Context => R): R =
