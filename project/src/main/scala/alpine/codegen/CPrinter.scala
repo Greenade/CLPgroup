@@ -17,6 +17,7 @@ import alpine.ast.ValuePattern
 import alpine.ast.RecordPattern
 import alpine.ast.Wildcard
 import alpine.symbols.Type.Labeled
+import javax.xml.stream.events.EntityReference
 // import scala_rt.rt
 
 /** The transpilation of an Alpine program to Scala. */
@@ -30,17 +31,46 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   /** Returns a Scala program equivalent to `syntax`. */
   def transpile(): String =
     given c: Context = Context()
-    c.output ++= "#include <stdio.h>\n#include <stdint.h>\n\nint main(void) {\n"
+    val output = StringBuilder()
     c.indentation += 1
-    syntax.declarations.foreach(_.visit(this))
-    c.output ++= "return 0;\n"
+    syntax.declarations.foreach(_.visit(this)) // all declarations emitted implicitely in c
     c.indentation -= 1
-    c.output ++= "}\n"
-    c.output.toString
 
-  /** Writes the Scala declaration of `t` in `context`. */
-  private def emitRecord(t: symbols.Type.Record)(using context: Context): Unit =
+    output ++= "#include <stdio.h>\n#include <stdint.h>\n\n"
+    c.typesToEmit.foreach(t => output ++= emitRecord(t))
+    c.functionsToEmit.foreach(f => output ++= emitFunction(f))
+    
+    output ++= "int main(void) {\n"
+    output ++= c.output.toString()
+    c.output ++= "return 0;\n"
+    output ++= "}\n"
+
+    output.toString
+
+  /** Writes the C declaration of `t` in `context`. */
+  private def emitRecord(t: symbols.Type.Record)(using context: Context): String =
     ???
+
+  /** Writes the C declaration of `t` in `context`. */
+  private def emitFunction(t: ast.Function)(using context: Context): String =
+    val output = StringBuilder()
+    t.output match
+      case Some(out) => output ++= transpiledType(out.tpe)
+      case None =>
+
+    output ++= " " + transpiledReferenceTo(t.entityDeclared) + "("    
+    output.appendCommaSeparated(t.inputs) { (o, a) => a.identifier }
+    output ++= ") {\n"
+    output ++= "return "
+
+    given c: Context = Context()
+    t.body.visit(this)
+
+    output ++= c.output.toString()
+    output ++= ";\n"
+    output ++= "}\n"
+    output.toString()
+
   /** Writes the Scala declaration of `t`, which is not a singleton, in `context`. */
   private def emitNonSingletonRecord(t: symbols.Type.Record)(using context: Context): Unit =
  
@@ -195,17 +225,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     unexpectedVisit(n)
 
   override def visitFunction(n: ast.Function)(using context: Context): Unit =
-    n.output match
-      case Some(output) => context.output ++= transpiledType(output.tpe)
-      case None =>
-
-    context.output ++= " " + n.identifier + "("    
-    context.output.appendCommaSeparated(n.inputs) { (o, a) => a.identifier }
-    context.output ++= ") {\n"
-    context.indentation += 1
-    n.body.visit(this)
-    context.indentation -= 1
-    context.output ++= "\n}\n"
+    context.registerUse(n)
 
   override def visitParameter(n: ast.Parameter)(using context: Context): Unit =
     unexpectedVisit(n)
@@ -232,10 +252,25 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
 
   override def visitApplication(n: ast.Application)(using context: Context): Unit =
+    def emitFormatString(t: Type): String = t match
+      case symbols.Type.String => "\"%s\\n\""
+      case symbols.Type.Float => "\"%f\\n\""
+      case symbols.Type.Int | Type.Bool => "\"%d\\n\""
+
     n.function.visit(this)
     context.output ++= "("
-    context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
-    context.output ++= ");\n"
+    n.function.referredEntity.get.entity match
+      case symbols.Entity.Builtin(e, _) => e.identifier match
+        case "print" =>  // TODO : it's a special case
+          assert(n.arguments.length == 1)
+          context.output ++= emitFormatString(n.arguments(0).value.tpe) + ", "
+          context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
+        case _ =>
+          context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
+      case _ =>
+        context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
+    
+    context.output ++= ")\n"
 
   override def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Unit =
     ???
@@ -308,12 +343,12 @@ object CPrinter:
 
     /** The types that must be emitted in the program. */
     private var _typesToEmit = mutable.Set[symbols.Type.Record]()
-    private var _functionsToEmit = mutable.Set[symbols.Type.Arrow]()
+    private var _functionsToEmit = mutable.Set[ast.Function]()
 
     /** The types that must be emitted in the program. */
     def typesToEmit: Set[symbols.Type.Record] = _typesToEmit.toSet
 
-    def functionsToEmit: Set[symbols.Type.Arrow] = _functionsToEmit.toSet 
+    def functionsToEmit: Set[ast.Function] = _functionsToEmit.toSet 
 
     /** The (partial) result of the transpilation. */
     private var _output = StringBuilder()
@@ -331,7 +366,7 @@ object CPrinter:
     def registerUse(t: symbols.Type.Record): Unit =
       if t != symbols.Type.Unit then _typesToEmit.add(t)
 
-    def registerUse(t: symbols.Type.Arrow): Unit =
+    def registerUse(t: ast.Function): Unit =
       _functionsToEmit.add(t)
 
     /** Returns `action` applied on `this` where `output` has been exchanged with `o`. */
