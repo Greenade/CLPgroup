@@ -261,7 +261,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     context.output ++= "("
     n.function.referredEntity.get.entity match
       case symbols.Entity.Builtin(e, _) => e.identifier match
-        case "print" =>  // TODO : it's a special case
+        case "print" =>  
           assert(n.arguments.length == 1)
           context.output ++= emitFormatString(n.arguments(0).value.tpe) + ", "
           context.output.appendCommaSeparated(n.arguments) { (o, a) => a.value.visit(this) }
