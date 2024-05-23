@@ -18,6 +18,7 @@ import alpine.ast.RecordPattern
 import alpine.ast.Wildcard
 import alpine.symbols.Type.Labeled
 import javax.xml.stream.events.EntityReference
+import alpine.ast.Identifier
 // import scala_rt.rt
 
 /** The transpilation of an Alpine program to Scala. */
@@ -49,7 +50,14 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
   /** Writes the C declaration of `t` in `context`. */
   private def emitRecord(t: symbols.Type.Record)(using context: Context): String =
-    ???
+    val output = StringBuilder()
+
+    output ++= "typedef struct " + transpiledType(t) + " {\n"
+    for (labeled, i) <- t.fields.zipWithIndex do
+      output ++= transpiledType(labeled.value) + " " + transpiledFieldName(labeled, i) + ";\n"
+
+    output ++= ("} " + transpiledType(t) + ";\n\n")
+    output.toString()
 
   /** Writes the C declaration of `t` in `context`. */
   private def emitFunction(t: ast.Function)(using context: Context): String =
@@ -76,6 +84,9 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
  
       ??? 
 
+  private def transpiledFieldName(l: Labeled, i: Int)(using context: Context): String =
+    l.label.getOrElse(discriminator(l.value) + i.toString())
+
   /** Returns the transpiled form of `t`. */
   private def transpiledType(t: symbols.Type)(using context: Context): String =
     t match
@@ -101,7 +112,12 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
   /** Returns the transpiled form of `t`. */
   private def transpiledRecord(t: symbols.Type.Record)(using context: Context): String =
-    ???
+    // TODO
+    if t == symbols.Type.Unit then
+      "Unit"
+    else
+      val d = discriminator(t)
+      if t.fields.isEmpty then s"${d}.type" else d
 
   /** Returns the transpiled form of `t`. */
   private def transpiledArrow(t: symbols.Type.Arrow)(using context: Context): String =
@@ -188,6 +204,8 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
       case symbols.Type.String => Some("char *")
       case symbols.Type.Float => Some("float")
       case symbols.Type.Int | Type.Bool => Some("int32_t")
+      case symbols.Type.Record(_, _) => 
+        if tpe == symbols.Type.Unit then None else Some(transpiledType(tpe)) 
       // TODO : probably records
       case _ => None
 
@@ -246,10 +264,26 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     context.output ++= n.value
 
   override def visitRecord(n: ast.Record)(using context: Context): Unit =
-    ???
+    val record = n.tpe.asInstanceOf[symbols.Type.Record]
+    context.registerUse(record)
+
+    context.output ++= "{ " 
+    record.fields.zipWithIndex.foreach { (a, i) => 
+      context.output ++= "." + transpiledFieldName(a, i) + " = " 
+      n.fields(i).value.visit(this)
+      context.output ++= ", "
+    } 
+    context.output ++= " };\n"
 
   override def visitSelection(n: ast.Selection)(using context: Context): Unit =
-    ???
+    // TODO
+    n.qualification.visit(this)
+    n.selectee.referredEntity match
+      case Some(symbols.EntityReference(e: symbols.Entity.Field, _)) =>
+        context.output ++= "." + transpiledFieldName(e.whole.fields(e.index), e.index)
+      case _ =>
+        unexpectedVisit(n.selectee)
+    
 
   override def visitApplication(n: ast.Application)(using context: Context): Unit =
     def emitFormatString(t: Type): String = t match
