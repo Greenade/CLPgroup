@@ -104,19 +104,45 @@ class Parser(val source: SourceFile):
   /** Parses and returns a function declaration. */
   private[parsing] def function(): Function =
     val funToken = expect(K.Fun)
-    val funId = functionIdentifier()
-    val parameterList = valueParameterList()
 
-    val retType = peek match
-      case Some(Token(K.Arrow, _)) =>
-        take(); Some(tpe())
-      case Some(_) | None => None
+    val backup = snapshot()
+    // if the token after the next token is a dot, then it's a method, and we need to parse the type
+    take()
+    peek match
+      case Some(Token(K.Dot, _)) =>
+        // it's a method
+        restore(backup)
+        val t = tpe()
+        expect(K.Dot)
+        val funId = functionIdentifier()
+        val parameterList = valueParameterList() :+ Parameter(Some("self"), "self", Some(t), t.site.extendedTo(lastBoundary))
 
-    expect(K.LBrace)
-    val body = expression()
-    expect(K.RBrace)
+        val retType = peek match
+          case Some(Token(K.Arrow, _)) =>
+            take(); Some(tpe())
+          case Some(_) | None => None
 
-    Function(funId, List.empty, parameterList, retType, body, funToken.site)
+        expect(K.LBrace)
+        val body = expression()
+        expect(K.RBrace)
+
+        Function(funId, List.empty, parameterList, retType, body, funToken.site)
+
+      case _ => 
+        restore(backup)
+        val funId = functionIdentifier()
+        val parameterList = valueParameterList()
+
+        val retType = peek match
+          case Some(Token(K.Arrow, _)) =>
+            take(); Some(tpe())
+          case Some(_) | None => None
+
+        expect(K.LBrace)
+        val body = expression()
+        expect(K.RBrace)
+
+        Function(funId, List.empty, parameterList, retType, body, funToken.site)
 
   /** Parses and returns the identifier of a function. */
   private def functionIdentifier(): String =
