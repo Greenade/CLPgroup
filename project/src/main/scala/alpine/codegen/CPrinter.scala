@@ -317,7 +317,13 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
 
   override def visitConditional(n: ast.Conditional)(using context: Context): Unit =
-    ???
+    context.output ++= "if ("
+    n.condition.visit(this)
+    context.output ++= ") {\n"
+    n.successCase.visit(this)
+    context.output ++= "} else {\n"
+    n.failureCase.visit(this)
+    context.output ++= "}\n"
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =
     ???
