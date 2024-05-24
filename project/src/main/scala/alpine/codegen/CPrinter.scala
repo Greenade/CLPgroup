@@ -38,6 +38,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     c.indentation -= 1
 
     output ++= "#include <stdio.h>\n#include <stdint.h>\n\n"
+    c.typesToEmit.foreach(t => output ++= emitForwardDeclRecord(t))
     c.typesToEmit.foreach(t => output ++= emitRecord(t))
     c.functionsToEmit.foreach(f => output ++= emitFunction(f))
     
@@ -47,6 +48,9 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     output ++= "}\n"
 
     output.toString
+
+  private def emitForwardDeclRecord(t: symbols.Type.Record)(using context: Context): String =
+    "typedef struct " + transpiledType(t) + " " + transpiledType(t) + ";\n"
 
   /** Writes the C declaration of `t` in `context`. */
   private def emitRecord(t: symbols.Type.Record)(using context: Context): String =
@@ -418,11 +422,3 @@ object CPrinter:
   end Context
 
 end CPrinter
-
-extension (self: StringBuilder) def appendCommaSeparated[T](ls: Seq[T])(
-    reduce: (StringBuilder, T) => Unit
-): Unit =
-    var f = true
-    for l <- ls do
-      if f then f = false else self ++= ", "
-      reduce(self, l)
