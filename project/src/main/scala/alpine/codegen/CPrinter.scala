@@ -186,6 +186,12 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     e match
       case symbols.Entity.Builtin(n, _) => n.identifier match
         case "print" => "printf"
+        case "ineg" => "-"
+        case "ilt"  => "<"
+        case "ile"  => "<="
+        case "igt"  => ">"
+        case "ige"  => ">="
+        case "lnot" => "~"
         case "iadd" => "+"
         case "isub" => "-"
         case "imul" => "*"
@@ -315,7 +321,10 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     context.output ++= ")\n"
 
   override def visitPrefixApplication(n: ast.PrefixApplication)(using context: Context): Unit =
-    ???
+    n.function.visit(this)
+    //context.output ++= "("
+    n.argument.visit(this)
+    //context.output ++= ")"
 
   override def visitInfixApplication(n: ast.InfixApplication)(using context: Context): Unit =
     context.output ++= "("
@@ -331,8 +340,10 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     n.condition.visit(this)
     context.output ++= ") {\n"
     n.successCase.visit(this)
+    context.output ++= ";\n"
     context.output ++= "} else {\n"
     n.failureCase.visit(this)
+    context.output ++= ";\n"
     context.output ++= "}\n"
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =

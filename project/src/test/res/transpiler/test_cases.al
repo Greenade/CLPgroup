@@ -181,3 +181,10 @@ let main = print(status)
 //OUT
 5
 //END
+
+//BEGIN Conditional is correctly evaluated (2pts)
+let x = -1
+let main = if x < -3 then print(42) else print(24)
+//OUT
+24
+//END
