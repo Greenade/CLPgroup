@@ -115,7 +115,7 @@ class Parser(val source: SourceFile):
         val t = tpe()
         expect(K.Dot)
         val funId = functionIdentifier()
-        val parameterList = valueParameterList() :+ Parameter(Some("self"), "self", Some(t), t.site.extendedTo(lastBoundary))
+        val parameterList = valueParameterList() :+ Parameter(None, "self", Some(t), t.site.extendedTo(lastBoundary))
 
         val retType = peek match
           case Some(Token(K.Arrow, _)) =>
@@ -316,8 +316,18 @@ class Parser(val source: SourceFile):
         take()
         peek match
           case Some(Token(K.Identifier, _)) => // check if the next token is an Identifier
-            val id = identifier()
-            compoundExpression2(Selection(primaryExp, id, primaryExp.site.extendedTo(lastBoundary)))
+            val backup = snapshot()
+            take()
+            peek match
+              case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for method application)
+                restore(backup)
+                val id = identifier() // the identifier of the method
+                val arguments = parenthesizedLabeledList(expression) :+ Labeled(Some("self"), primaryExp, primaryExp.site.extendedTo(lastBoundary))
+                compoundExpression2(Application(id, arguments, primaryExp.site.extendedTo(lastBoundary)))
+              case _ =>
+                restore(backup)
+                val id = identifier()
+                compoundExpression2(Selection(primaryExp, id, primaryExp.site.extendedTo(lastBoundary)))
           case Some(Token(K.Integer, _)) => // check if the next token is an Integer
             val integ = integerLiteral()
             compoundExpression2(Selection(primaryExp, integ, primaryExp.site.extendedTo(lastBoundary)))

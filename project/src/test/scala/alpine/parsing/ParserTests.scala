@@ -178,6 +178,20 @@ class ParserTests extends munit.FunSuite:
       case x => fail(f"Expected a function call with correct arguments, got $x.")
   }
 
+  test("`compoundExpression` can parse a method call with no other argument") {
+    val p = instrumentParser("someValue.funId()", 0)
+    p.compoundExpression() match
+      case Application(Identifier("funId", _), List(Labeled(Some("self"), Identifier("someValue", _), _)), _) => ()
+      case x => fail(f"Expected a function call with correct arguments, got $x.")
+  }
+
+  test("`compoundExpression` can parse a method call with other arguments") {
+    val p = instrumentParser("someValue.funId()", 0)
+    p.compoundExpression() match
+      case Application(Identifier("funId", _), List(Labeled(Some("self"), Identifier("someValue", _), _)), _) => ()
+      case x => fail(f"Expected a function call with correct arguments, got $x.")
+  }
+
   // Prefix expression
 
   test("`prefixExpression` can parse a - operator (1pt)") {
@@ -678,6 +692,13 @@ class ParserTests extends munit.FunSuite:
   }
 
   // Function
+  test("`function` works with a method on a native type") {
+    val p = instrumentParser("fun Int.f(){ 1 }",0)
+    p.function() match
+      case Function("f", List(), List(Parameter(None, "self", Some(TypeIdentifier("Int", _)), _)), None, IntegerLiteral("1", _), _) => ()
+      case x => fail(f"Expected a correct function, got $x.")
+  }
+
   test("`function` works with a function with no arguments (1pt)") {
     val p = instrumentParser("fun f() { 1 }", 0)
     p.function() match
