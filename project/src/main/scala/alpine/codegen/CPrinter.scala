@@ -71,7 +71,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
       case None =>
 
     output ++= " " + transpiledReferenceTo(t.entityDeclared) + "("    
-    output.appendCommaSeparated(t.inputs) { (o, a) => a.identifier }
+    output.appendCommaSeparated(t.inputs) { (o, a) => o ++= a.identifier }
     output ++= ") {\n"
     output ++= "return "
 
@@ -186,6 +186,10 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     e match
       case symbols.Entity.Builtin(n, _) => n.identifier match
         case "print" => "printf"
+        case "iadd" => "+"
+        case "isub" => "-"
+        case "imul" => "*"
+        case "idiv" => "/"
         // TODO : other builtins to support ?
         case _@b =>  b
       case symbols.Entity.Declaration(n, t) => scalaized(n) + discriminator(t)
@@ -273,7 +277,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
 
     context.output ++= "{ " 
     record.fields.zipWithIndex.foreach { (a, i) => 
-      context.output ++= "." + transpiledFieldName(a, i) + " = " 
+      context.output ++= ("." + transpiledFieldName(a, i) + " = ") 
       n.fields(i).value.visit(this)
       context.output ++= ", "
     } 
@@ -314,7 +318,13 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
 
   override def visitInfixApplication(n: ast.InfixApplication)(using context: Context): Unit =
-    ???
+    context.output ++= "("
+    n.lhs.visit(this)
+    context.output ++= " "
+    n.function.visit(this)
+    context.output ++= " "
+    n.rhs.visit(this)
+    context.output ++= ")"
 
   override def visitConditional(n: ast.Conditional)(using context: Context): Unit =
     context.output ++= "if ("
@@ -340,7 +350,9 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   override def visitParenthesizedExpression(
       n: ast.ParenthesizedExpression
   )(using context: Context): Unit =
-    context.output ++= "(" + n.inner + ")"
+    context.output ++= "("
+    n.inner.visit(this) 
+    context.output ++= ")"
 
   override def visitAscribedExpression(
       n: ast.AscribedExpression
