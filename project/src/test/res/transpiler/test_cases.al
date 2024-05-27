@@ -188,3 +188,13 @@ let main = if x < -3 then print(42) else print(24)
 //OUT
 24
 //END
+
+//BEGIN Pattern matching with simple values (2pts)
+let main = match 1 {
+    case 2 then print(2)
+    case 1 then print(1)
+    case 0 then print(0)
+}
+//OUT
+1
+//END

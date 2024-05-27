@@ -347,10 +347,19 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     context.output ++= "}\n"
 
   override def visitMatch(n: ast.Match)(using context: Context): Unit =
-    ???
+    context.output ++= "switch ("
+    n.scrutinee.visit(this)
+    context.output ++= ") {\n"
+    n.cases.foreach(_.visit(this))
+    context.output ++= "}\n"
 
   override def visitMatchCase(n: ast.Match.Case)(using context: Context): Unit =
-    ???
+    context.output ++= "case "
+    n.pattern.visit(this)
+    context.output ++= ": "
+    n.body.visit(this)
+    context.output ++= ";\n"
+    context.output ++= "break;\n"
 
   override def visitLet(n: ast.Let)(using context: Context): Unit =
     ???
