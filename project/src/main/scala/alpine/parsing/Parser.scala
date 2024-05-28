@@ -322,7 +322,7 @@ class Parser(val source: SourceFile):
               case Some(Token(K.LParen, _)) => // check if the next token is a LParen (for method application)
                 restore(backup)
                 val id = identifier() // the identifier of the method
-                val arguments = parenthesizedLabeledList(expression) :+ Labeled(Some("self"), primaryExp, primaryExp.site.extendedTo(lastBoundary))
+                val arguments = parenthesizedLabeledList(expression) :+ Labeled(None, primaryExp, primaryExp.site.extendedTo(lastBoundary))
                 compoundExpression2(Application(id, arguments, primaryExp.site.extendedTo(lastBoundary)))
               case _ =>
                 restore(backup)

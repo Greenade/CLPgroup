@@ -134,3 +134,67 @@ let main = print(getAge(r: p))
 //OUT
 47
 //END
+
+//BEGIN Methods called as free functions work
+fun Int.f(y: Int) -> Int { self + y }
+let main = print(f(1,2))
+
+//OUT
+3
+//END
+
+//BEGIN Methods called as methods work
+fun Int.f(y: Int) -> Int { self + y }
+let x = 1
+let main = print(x.f(2))
+
+//OUT
+3
+//END
+
+//BEGIN Methods declared as free functions work
+fun f(self: Int, y: Int) -> Int { self + y }
+let x = 1
+let main = print(x.f(2))
+
+//OUT
+3
+//END
+
+//BEGIN Methods with no argument work
+fun Int.f() -> Int { self + 1 }
+let x = 1
+let main = print(x.f())
+
+//OUT
+2
+//END
+
+//BEGIN calling free function with record as argument as method work
+fun getAge(self: #person(id: Float, age: Int)) -> Int {self.age}
+let p = #person(id: 12.5, age: 47)
+let main = print(p.getAge())
+
+//OUT
+47
+//END
+
+//BEGIN Methods called twice work
+fun Int.f(y: Int) -> Int { self + y }
+let x = 1
+let main = print(x.f(2).f(2))
+
+//OUT
+5
+//END
+
+//BEGIN Complicated method test
+fun Int.f() -> Int { self + 1 }
+fun Int.d() -> Int { self + self }
+fun g(self: Int) -> Int { self + 2 }
+let x = 1
+let main = print(f(self: x.d().g()))
+
+//OUT
+5
+//END

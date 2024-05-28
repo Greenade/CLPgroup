@@ -181,14 +181,14 @@ class ParserTests extends munit.FunSuite:
   test("`compoundExpression` can parse a method call with no other argument") {
     val p = instrumentParser("someValue.funId()", 0)
     p.compoundExpression() match
-      case Application(Identifier("funId", _), List(Labeled(Some("self"), Identifier("someValue", _), _)), _) => ()
+      case Application(Identifier("funId", _), List(Labeled(None, Identifier("someValue", _), _)), _) => ()
       case x => fail(f"Expected a function call with correct arguments, got $x.")
   }
 
   test("`compoundExpression` can parse a method call with other arguments") {
-    val p = instrumentParser("someValue.funId()", 0)
+    val p = instrumentParser("someValue.funId(y)", 0)
     p.compoundExpression() match
-      case Application(Identifier("funId", _), List(Labeled(Some("self"), Identifier("someValue", _), _)), _) => ()
+      case Application(Identifier("funId", _), List(Labeled(None, Identifier("y", _), _), Labeled(None, Identifier("someValue", _), _)), _) => ()
       case x => fail(f"Expected a function call with correct arguments, got $x.")
   }
 
