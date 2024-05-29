@@ -108,11 +108,11 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   private def transpiledBuiltin(t: symbols.Type.Builtin)(using context: Context): String =
     t match
       case symbols.Type.BuiltinModule => throw Error(s"type '${t}' is not representable in Scala")
-      case symbols.Type.Bool => "Boolean"
+      case symbols.Type.Bool => "char"
       case symbols.Type.Int => "int32_t"
       case symbols.Type.Float => "float"
       case symbols.Type.String => "char *"
-      case symbols.Type.Any => "Any"
+      case symbols.Type.Any => "uint64_t"
 
   /** Returns the transpiled form of `t`. */
   private def transpiledRecord(t: symbols.Type.Record)(using context: Context): String =
@@ -128,7 +128,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
     ???
   /** Returns the transpiled form of `t`. */
   private def transpiledSum(t: symbols.Type.Sum)(using context: Context): String =
-    ???
+    transpiledType(t.members.head)
 
   /** Returns a string uniquely identifiyng `t` for use as a discriminator in a mangled name. */
   private def discriminator(t: symbols.Type): String =
@@ -215,13 +215,13 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   override def visitBinding(n: ast.Binding)(using context: Context): Unit =
     def alpineTypeToCType(tpe: symbols.Type): Option[String] = tpe match
       case arrow:symbols.Type.Arrow => alpineTypeToCType(arrow.output)
-      case symbols.Type.String => Some("char *")
+      /* TODO : probably let transpiledType() do the job */
+      /*case symbols.Type.String => Some("char *")
       case symbols.Type.Float => Some("float")
-      case symbols.Type.Int | Type.Bool => Some("int32_t")
+      case symbols.Type.Int | Type.Bool => Some("int32_t") */
       case symbols.Type.Record(_, _) => 
         if tpe == symbols.Type.Unit then None else Some(transpiledType(tpe)) 
-      // TODO : probably records
-      case _ => None
+      case _ => Some(transpiledType(tpe))
 
     val tpe = (n.ascription match
       case Some(ascription) => alpineTypeToCType(ascription.tpe)
@@ -304,6 +304,7 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
       case symbols.Type.String => "\"%s\\n\""
       case symbols.Type.Float => "\"%f\\n\""
       case symbols.Type.Int | Type.Bool => "\"%d\\n\""
+      case _ => "\"\""
 
     n.function.visit(this)
     context.output ++= "("
@@ -377,7 +378,12 @@ final class CPrinter(syntax: TypedProgram) extends ast.TreeVisitor[CPrinter.Cont
   override def visitAscribedExpression(
       n: ast.AscribedExpression
   )(using context: Context): Unit =
-    ???
+    n.operation match
+      case Typecast.NarrowUnconditionally | Typecast.Widen =>
+        context.output ++= "(" + transpiledType(n.ascription.tpe) + ") "
+        n.inner.visit(this)
+      case Typecast.Narrow => unexpectedVisit(n) 
+    
 
   override def visitTypeIdentifier(n: ast.TypeIdentifier)(using context: Context): Unit =
     unexpectedVisit(n)
